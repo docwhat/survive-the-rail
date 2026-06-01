@@ -15,7 +15,7 @@ Each task depends on the tasks listed above it. Complete each task before moving
 **Includes:**
 - `project.godot` configured for the project
 - `mise.toml` with Godot, trunk, and any tool versions
-- `trunk.toml` for linting config
+- `trunk.toml` for linting config (use `trunk init` to create this).
 - Flat directory structure: `/test/` for GUT tests
 - Basic `README.md`
 - AGENTS.md (already exists)

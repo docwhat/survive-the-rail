@@ -1,0 +1,49 @@
+[env]
+
+[tasks.clean]
+description = "Clean all exported builds and other cruft"
+run = "rm -rf build"
+
+[tasks.check]
+description = "Check code for lint or static analysis issues"
+run = "trunk check"
+
+[tasks.fix]
+alias = "fmt"
+description = "Fix code style issues"
+run = "trunk fix"
+
+[tasks.game]
+description = "Run the game"
+run = "godot --path . --print-fps"
+
+[tasks.godot]
+description = "Run the Godot editor"
+run = "(godot --path . --editor >& /dev/null &)"
+
+[tasks.test]
+description = "Run the GUT tests"
+run = "bash mise-tasks/test"
+
+[tasks.export-all]
+depends = ["export-web", "export-macos", "export-windows", "export-linux"]
+description = "Export all platforms to build/"
+
+[tasks.export-macos]
+description = "Export the macOS version to build/macos/"
+run = "godot --headless --export-debug \"macOS\" build/macos/survive-the-rail.app"
+
+[tasks.export-windows]
+description = "Export the Windows version to build/windows/"
+run = "godot --headless --export-debug \"Windows Desktop\" build/windows/survive-the-rail.exe"
+
+[tasks.export-linux]
+description = "Export the Linux version to build/linux/"
+run = "godot --headless --export-debug \"Linux/X11\" build/linux/survive-the-rail"
+
+[tasks.export-web]
+description = "Export the Web version to build/web/"
+run = "godot --headless --export-debug \"Web\" build/web/index.html"
+
+[tools]
+trunk = "latest"
