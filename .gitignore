@@ -1,0 +1,25 @@
+# Build outputs
+build/
+
+# Godot editor backups
+*.import/
+*.pid
+user://
+
+# Godot editor auto-saves
+*.tscn.bak
+*.tres.bak
+*.gds.bak
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Trunk
+.trunk/
