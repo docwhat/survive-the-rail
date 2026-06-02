@@ -182,7 +182,7 @@ Each file should already have some minimal information at the top of each file a
 
 **Goal:** Research Queble's modular weapon system for car/weapon design ideas.
 
-**Reference:** Queble — "Complex (yet modular) weapon system" — https://youtu.be/a5GJcgdSEQo?si=AilvTcwI7jGYIXXA
+**Reference:** Queble — ["Complex (yet modular) weapon system"](https://youtu.be/a5GJcgdSEQo?si=AilvTcwI7jGYIXXA)
 
 - Modular weapon architecture
 - Upgradeable weapon components and effects

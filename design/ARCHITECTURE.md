@@ -19,7 +19,7 @@
 
 Flat structure (add directories only when complexity demands it):
 
-```
+```text
 project/
 ├── main.gd              # Entry point, scene manager
 ├── game_state.gd        # Central state machine (track-lay → play → upgrade → game-over)
@@ -56,7 +56,7 @@ project/
 
 ### TrackSegment
 
-```
+```gdscript
 TrackSegment {
     segment_type: string      # "straight", "curve_left", "curve_right"
     orientation: int          # 0, 1, 2, 3 (4 cardinal directions)
@@ -68,7 +68,7 @@ TrackSegment {
 
 ### GameState
 
-```
+```gdscript
 GameState {
     phase: TrackLay | Playing | Upgrading | GameOver
     resources: float          # XP/money
@@ -89,7 +89,7 @@ GameState {
 
 ### Train
 
-```
+```gdscript
 Train {
     position: Vector2
     speed: float              # Current speed
@@ -106,7 +106,7 @@ Train {
 
 ### Car
 
-```
+````gdscript
 Car {
     car_type: string          # "cannon", "machine_gun", "booster", "cargo", etc.
     car_category: Weapon | Utility
@@ -120,8 +120,8 @@ Car {
 }
 
 ### Upgrade
-```
 
+```gdscript
 Upgrade {
 id: string
 name: string # Translation key
@@ -132,11 +132,11 @@ value: float # Magnitude of effect
 targeting_mode: string? # New targeting mode (nearest, farthest, healthiest, weakest)
 }
 
-```
+````
 
 ### Settings
-```
 
+```gdscript
 Settings {
 machine: {
 resolution: Vector2i
@@ -156,6 +156,7 @@ difficulty: string
 ## Core Systems
 
 ### 1. Track System
+
 - Track is made of discrete segments (like a child's train set)
 - Segment types: straight, curved (left/right), possibly diagonal later
 - Each segment type has a fixed graphic asset and fixed orientation
@@ -168,6 +169,7 @@ difficulty: string
 - Obstacles can be placed on track segments
 
 ### 2. Train Physics & Movement
+
 - Simple physics: speed, acceleration, momentum, force (all 2D)
 - Throttle increases speed, brakes decrease
 - Momentum prevents instant stops
@@ -191,7 +193,9 @@ difficulty: string
   - Choice per enemy/obstacle type or per encounter
 
 ### 3. Track Segments (Graphic Assets)
+
 Fixed set of segment graphics — no procedural track art:
+
 - Straight (1): forward-facing
 - Curved Left (1): 90° turn left
 - Curved Right (1): 90° turn right
@@ -199,6 +203,7 @@ Fixed set of segment graphics — no procedural track art:
 - Each segment has a collision shape matching its visual
 
 ### 4. Car System
+
 - Cars attach to the train and come in two categories:
   - **Weapon cars** — auto-aim and auto-fire at enemies (G.U.I.D.E handles input mapping for throttle/brakes)
     - Each weapon type has different fire rate, damage, range
@@ -208,24 +213,28 @@ Fixed set of segment graphics — no procedural track art:
 - Upgrades can improve existing cars, add new cars, or change targeting modes
 
 ### 5. Enemy System
+
 - Enemies spawn in waves or continuously
 - Different enemy types with varying health/speed
 - Special enemies drop chests on death
 - Enemies push obstacles, can be pushed by train
 
 ### 6. Upgrade System
+
 - XP/money collected from kills
 - At thresholds, present upgrade choices (3 options)
 - Chests give pre-selected rewards
 - Upgrades affect cars, track capacity, or train stats
 
 ### 7. Save System
+
 - Full game state serialization
 - Auto-save on quit
 - Resume from save point
 - Settings split: machine-specific vs universal
 
 ### 8. Text/Story System
+
 - All text uses translation keys
 - Story delivered through text_manager
 - Beginnings of narrative woven into gameplay
@@ -233,7 +242,7 @@ Fixed set of segment graphics — no procedural track art:
 ## References & Inspiration
 
 - **Vampire Survivors** — auto-fire, upgrade choices, wave survival
-- **Queble — "Complex (yet modular) weapon system"** — https://youtu.be/a5GJcgdSEQo?si=AilvTcwI7jGYIXXA
+- **Queble — ["Complex (yet modular) weapon system"](https://youtu.be/a5GJcgdSEQo?si=AilvTcwI7jGYIXXA)**
   - Modular weapon architecture for car weapons
   - Study for upgradeable weapon components and effects
 
@@ -258,4 +267,3 @@ Fixed set of segment graphics — no procedural track art:
 - Translation-ready text from day one
 - Placeholder art/audio that an artist/musician can replace later
 - **Targeting mode is not toggleable during gameplay.** Players cannot cycle through targeting modes (nearest, farthest, healthiest, weakest) while playing. The fantasy is "I drive the train, the cars handle combat." Letting players toggle targeting mid-fight breaks that fantasy with a menu action. Targeting modes are chosen once when a car is acquired via the upgrade system, and can be changed by replacing the car through an upgrade.
-```
