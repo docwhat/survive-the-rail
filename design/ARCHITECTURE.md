@@ -4,16 +4,16 @@
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Engine | Godot (latest stable) |
+| Layer         | Technology                                             |
+| ------------- | ------------------------------------------------------ |
+| Engine        | Godot (latest stable)                                  |
 | Build Targets | macOS, Linux, Windows, WASM (GitHub Pages auto-deploy) |
-| Language | GDScript |
-| Input | G.U.I.D.E (auto-fire + train controls) |
-| Testing | GUT (unit tests for rules) |
-| Console | godot-console |
-| Tool Mgmt | mise (mise.toml) |
-| Linting | trunk (external to Godot) |
+| Language      | GDScript                                               |
+| Input         | G.U.I.D.E (auto-fire + train controls)                 |
+| Testing       | GUT (unit tests for rules)                             |
+| Console       | godot-console                                          |
+| Tool Mgmt     | mise (mise.toml)                                       |
+| Linting       | trunk (external to Godot)                              |
 
 ## File Structure
 
@@ -55,6 +55,7 @@ project/
 ## Data Model
 
 ### TrackSegment
+
 ```
 TrackSegment {
     segment_type: string      # "straight", "curve_left", "curve_right"
@@ -66,6 +67,7 @@ TrackSegment {
 ```
 
 ### GameState
+
 ```
 GameState {
     phase: TrackLay | Playing | Upgrading | GameOver
@@ -86,6 +88,7 @@ GameState {
 ```
 
 ### Train
+
 ```
 Train {
     position: Vector2
@@ -102,6 +105,7 @@ Train {
 ```
 
 ### Car
+
 ```
 Car {
     car_type: string          # "cannon", "machine_gun", "booster", "cargo", etc.
@@ -117,32 +121,36 @@ Car {
 
 ### Upgrade
 ```
+
 Upgrade {
-    id: string
-    name: string              # Translation key
-    description: string       # Translation key
-    effect: UpgradeEffect     # Enum: improve_weapon_car, add_weapon_car, improve_utility_car, add_utility_car, extend_track, change_targeting_mode, etc.
-    target_car: string?       # Which car to improve/change (if applicable)
-    value: float              # Magnitude of effect
-    targeting_mode: string?   # New targeting mode (nearest, farthest, healthiest, weakest)
+id: string
+name: string # Translation key
+description: string # Translation key
+effect: UpgradeEffect # Enum: improve_weapon_car, add_weapon_car, improve_utility_car, add_utility_car, extend_track, change_targeting_mode, etc.
+target_car: string? # Which car to improve/change (if applicable)
+value: float # Magnitude of effect
+targeting_mode: string? # New targeting mode (nearest, farthest, healthiest, weakest)
 }
+
 ```
 
 ### Settings
 ```
+
 Settings {
-    machine: {
-        resolution: Vector2i
-        volume: float
-        fullscreen: bool
-        ...
-    }
-    universal: {
-        language: string
-        difficulty: string
-        ...
-    }
+machine: {
+resolution: Vector2i
+volume: float
+fullscreen: bool
+...
 }
+universal: {
+language: string
+difficulty: string
+...
+}
+}
+
 ```
 
 ## Core Systems
@@ -250,3 +258,4 @@ Fixed set of segment graphics — no procedural track art:
 - Translation-ready text from day one
 - Placeholder art/audio that an artist/musician can replace later
 - **Targeting mode is not toggleable during gameplay.** Players cannot cycle through targeting modes (nearest, farthest, healthiest, weakest) while playing. The fantasy is "I drive the train, the cars handle combat." Letting players toggle targeting mid-fight breaks that fantasy with a menu action. Targeting modes are chosen once when a car is acquired via the upgrade system, and can be changed by replacing the car through an upgrade.
+```
