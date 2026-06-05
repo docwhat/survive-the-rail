@@ -2,6 +2,44 @@
 
 > App structure, data model, risks, and any other decisions about the project.
 
+## Core Loop
+
+The game runs on three nested loops, each feeding the next:
+
+**Micro loop — Survive the wave (seconds)**
+
+- **Drive** — Throttle and brake as your train rolls along the track you laid.
+- **Shoot** — Your weapon cars auto-fire at enemies, no input needed.
+- **Dodge** — Swerve around obstacles, time your speed to plow through or avoid them.
+- **Collect** — XP and money drop from kills; grab them to fuel your next round of upgrades.
+
+This is the moment-to-moment pulse: you're always moving, always deciding speed vs. safety, always watching for threats. The train is your fortress — you control its motion, the cars handle the fighting.
+
+**Meta loop — Build your railway (minutes)**
+
+- **Lay track** — Spend resources to extend your route before each round. Track length = survival time = more enemies killed = more XP.
+- **Fight** — Survive the enemy wave on your track.
+- **Upgrade** — Choose from 3 options: improve a car's weapon, add a new car type, boost train stats, or extend max track length.
+- **Repeat** — Each round gets harder; your train gets deadlier.
+
+This is the progression engine. Every decision compounds: a longer track means more time to farm XP but also more exposure to enemies. A heavier train is harder to stop but carries more firepower. You're building a machine that's uniquely yours.
+
+**Outer loop — Survive as long as you can (sessions)**
+
+- Push further each session. Die or choose to continue with a saved state.
+- Unlock new car types, weapons, and strategies across runs.
+- The story unfolds through gameplay — each run reveals another piece.
+
+**Why this is awesome**
+
+The magic is in the tension between control and surrender:
+
+- You _control_ the train's speed — throttle for momentum, brake to dodge.
+- You _surrender_ the shooting — your cars handle combat automatically.
+- You _plan_ the track — but enemies adapt to what you build.
+
+It's Vampire Survivors' addictive upgrade loop, but with a train at the center. You're not just surviving — you're building a rolling fortress, feeling every car you add make the train heavier and more powerful. The bogie pivot animation on curves, the momentum of a full train, the satisfaction of watching your custom-configured railgun carve through waves of enemies — that's the fantasy.
+
 ## Tech Stack
 
 | Layer         | Technology                                             |
