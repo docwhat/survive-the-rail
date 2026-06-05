@@ -21,6 +21,9 @@ mono_crash.*.json
 # Build outputs
 build/
 
+# Test reports
+reports/
+
 # OS files
 .DS_Store
 Thumbs.db

@@ -6,7 +6,7 @@
 
 The game runs on three nested loops, each feeding the next:
 
-**Micro loop — Survive the wave (seconds)**
+### Micro loop — Survive the wave (seconds)
 
 - **Drive** — Throttle and brake as your train rolls along the track you laid.
 - **Shoot** — Your weapon cars auto-fire at enemies, no input needed.
@@ -15,7 +15,7 @@ The game runs on three nested loops, each feeding the next:
 
 This is the moment-to-moment pulse: you're always moving, always deciding speed vs. safety, always watching for threats. The train is your fortress — you control its motion, the cars handle the fighting.
 
-**Meta loop — Build your railway (minutes)**
+### Meta loop — Build your railway (minutes)
 
 - **Lay track** — Spend resources to extend your route before each round. Track length = survival time = more enemies killed = more XP.
 - **Fight** — Survive the enemy wave on your track.
@@ -24,13 +24,13 @@ This is the moment-to-moment pulse: you're always moving, always deciding speed 
 
 This is the progression engine. Every decision compounds: a longer track means more time to farm XP but also more exposure to enemies. A heavier train is harder to stop but carries more firepower. You're building a machine that's uniquely yours.
 
-**Outer loop — Survive as long as you can (sessions)**
+### Outer loop — Survive as long as you can (sessions)
 
 - Push further each session. Die or choose to continue with a saved state.
 - Unlock new car types, weapons, and strategies across runs.
 - The story unfolds through gameplay — each run reveals another piece.
 
-**Why this is awesome**
+### Why this is awesome
 
 The magic is in the tension between control and surrender:
 
