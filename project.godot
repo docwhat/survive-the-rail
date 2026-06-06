@@ -8,19 +8,6 @@
 
 config_version=5
 
-[features]
-
-[display]
-
-window/size/viewport_width=1280
-window/size/viewport_height=720
-window/size/window_width_override=1280
-window/size/window_height_override=720
-window/energy_saving/keep_screen_on=false
-window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
-window/handheld/orientation=6
-
 [animation]
 
 compatibility/default_parent_skeleton_in_mesh_instance_3d=true
@@ -40,6 +27,17 @@ file_logging/enable_file_logging=true
 gdscript/warnings/shadowed_global_identifier=2
 gdscript/warnings/untyped_declaration=1
 gdscript/warnings/confusable_identifier=2
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/energy_saving/keep_screen_on=false
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=6
 
 [editor]
 

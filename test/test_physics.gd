@@ -1,0 +1,361 @@
+extends GdUnitTestSuite
+
+# --- Helpers ---
+
+func _make_body(mass: float, velocity: Vector2) -> Dictionary:
+	"""Create a physics body dictionary for collision tests."""
+	return { "mass": mass, "velocity": velocity }
+
+# ============================================================================
+# Circle Collision Detection
+# ============================================================================
+
+
+func test_circles_ahead_returns_true_when_touching():
+	"""Two circles exactly at sum-of-radii distance should be touching."""
+	var a_pos: Vector2 = Vector2.ZERO
+	var b_pos: Vector2 = Vector2.RIGHT * 10.0 # 10 units apart
+	# radii: 5 + 5 = 10, so they're just touching (margin adds tiny overlap)
+	var result: bool = Physics.circles_ahead(a_pos, 5.0, b_pos, 5.0)
+	assert_bool(result).is_true()
+
+
+func test_circles_ahead_returns_true_when_overlapping():
+	"""Circles whose centers are closer than sum-of-radii should collide."""
+	var a_pos: Vector2 = Vector2.ZERO
+	var b_pos: Vector2 = Vector2.RIGHT * 5.0 # 5 units apart, radii 5+5=10
+	var result: bool = Physics.circles_ahead(a_pos, 5.0, b_pos, 5.0)
+	assert_bool(result).is_true()
+
+
+func test_circles_ahead_returns_false_when_separated():
+	"""Circles clearly separated should not collide."""
+	var a_pos: Vector2 = Vector2.ZERO
+	var b_pos: Vector2 = Vector2.RIGHT * 100.0 # 100 units apart, radii 5+5=10
+	var result: bool = Physics.circles_ahead(a_pos, 5.0, b_pos, 5.0)
+	assert_bool(result).is_false()
+
+# ============================================================================
+# Momentum Calculation
+# ============================================================================
+
+
+func test_momentum_is_speed_times_mass():
+	"""Momentum = speed * mass, straightforward."""
+	var result: float = Physics.momentum(10.0, 5.0)
+	assert_float(result).is_equal_approx(50.0, 0.001)
+
+
+func test_momentum_zero_speed_yields_zero_momentum():
+	"""Stationary entity has zero momentum."""
+	var result: float = Physics.momentum(0.0, 100.0)
+	assert_float(result).is_equal_approx(0.0, 0.001)
+
+
+func test_momentum_zero_mass_yields_zero_momentum():
+	"""Massless entity has zero momentum."""
+	var result: float = Physics.momentum(50.0, 0.0)
+	assert_float(result).is_equal_approx(0.0, 0.001)
+
+
+func test_heavier_train_has_more_momentum_at_same_speed():
+	"""A full train (heavy) has more momentum than engine-only at same speed."""
+	var engine_momentum: float = Physics.momentum(10.0, 10.0)
+	var full_train_momentum: float = Physics.momentum(10.0, 100.0)
+	assert_bool(full_train_momentum > engine_momentum).is_true()
+
+
+func test_momentum_scales_linearly_with_weight():
+	"""5x weight -> 5x momentum at same speed."""
+	var momentum: float = Physics.momentum(10.0, 50.0)
+	assert_float(momentum).is_equal_approx(500.0, 0.001)
+
+# ============================================================================
+# Weight-Scaled Acceleration
+# ============================================================================
+
+
+func test_acceleration_inversely_scales_with_weight():
+	"""More weight -> less acceleration."""
+	var light_acc: float = Physics.effective_acceleration(100.0, 10.0)
+	var heavy_acc: float = Physics.effective_acceleration(100.0, 100.0)
+	assert_bool(light_acc > heavy_acc).is_true()
+	assert_float(light_acc).is_equal_approx(10.0, 0.001)
+	assert_float(heavy_acc).is_equal_approx(1.0, 0.001)
+
+
+func test_acceleration_same_weight_same_result():
+	"""Same weight -> same acceleration for same engine power."""
+	var acc1: float = Physics.effective_acceleration(200.0, 50.0)
+	var acc2: float = Physics.effective_acceleration(200.0, 50.0)
+	assert_float(acc1).is_equal_approx(acc2, 0.001)
+
+
+func test_acceleration_double_weight_halves_acceleration():
+	"""Doubling weight halves acceleration (inverse proportionality)."""
+	var base: float = Physics.effective_acceleration(100.0, 10.0)
+	var double: float = Physics.effective_acceleration(100.0, 20.0)
+	assert_float(base).is_equal_approx(double * 2.0, 0.001)
+
+
+func test_zero_weight_returns_inf_acceleration():
+	"""Massless entity accelerates infinitely (edge case)."""
+	var result: float = Physics.effective_acceleration(100.0, 0.0)
+	assert_bool(is_inf(result)).is_true()
+
+# ============================================================================
+# Weight-Scaled Deceleration
+# ============================================================================
+
+
+func test_deceleration_inversely_scales_with_weight():
+	"""More weight -> less deceleration (harder to stop)."""
+	var light_dec: float = Physics.effective_deceleration(100.0, 10.0)
+	var heavy_dec: float = Physics.effective_deceleration(100.0, 100.0)
+	assert_bool(light_dec > heavy_dec).is_true()
+	assert_float(light_dec).is_equal_approx(10.0, 0.001)
+	assert_float(heavy_dec).is_equal_approx(1.0, 0.001)
+
+
+func test_deceleration_same_as_acceleration_formula():
+	"""The formula is the same for both acceleration and deceleration."""
+	var acc: float = Physics.effective_acceleration(50.0, 25.0)
+	var dec: float = Physics.effective_deceleration(50.0, 25.0)
+	assert_float(acc).is_equal_approx(dec, 0.001)
+
+# ============================================================================
+# Speed Update (Throttle / Brake / Friction)
+# ============================================================================
+
+
+func test_throttle_increases_speed():
+	"""Throttling should increase speed by acceleration * delta."""
+	var new_speed: float = Physics.update_speed(0.0, 5.0, 5.0, true, false, 100.0, 1.0)
+	assert_float(new_speed).is_equal_approx(5.0, 0.001)
+
+
+func test_brake_decreases_speed():
+	"""Braking should decrease speed by deceleration * delta."""
+	var new_speed: float = Physics.update_speed(20.0, 5.0, 10.0, false, true, 100.0, 1.0)
+	assert_float(new_speed).is_equal_approx(10.0, 0.001)
+
+
+func test_no_input_applies_friction():
+	"""With no throttle or brake, speed decreases slowly (rolling friction)."""
+	var new_speed: float = Physics.update_speed(20.0, 5.0, 10.0, false, false, 100.0, 1.0)
+	# Friction = acceleration * 0.1 * delta = 5 * 0.1 * 1 = 0.5
+	assert_float(new_speed).is_equal_approx(19.5, 0.001)
+
+
+func test_speed_is_clamped_to_max():
+	"""Speed cannot exceed max_speed."""
+	var new_speed: float = Physics.update_speed(95.0, 10.0, 5.0, true, false, 100.0, 1.0)
+	assert_float(new_speed).is_equal_approx(100.0, 0.001)
+
+
+func test_speed_is_clamped_to_zero():
+	"""Speed cannot go below zero (braking doesn't reverse)."""
+	var new_speed: float = Physics.update_speed(3.0, 5.0, 10.0, false, true, 100.0, 1.0)
+	assert_float(new_speed).is_equal_approx(0.0, 0.001)
+
+
+func test_throttle_takes_priority():
+	"""Throttle takes priority when specified."""
+	var new_speed: float = Physics.update_speed(0.0, 5.0, 20.0, true, false, 100.0, 1.0)
+	# Throttle: speed += 5 * 1 = 5
+	assert_float(new_speed).is_equal_approx(5.0, 0.001)
+
+
+func test_small_delta_proportional_speed_change():
+	"""Speed change is proportional to delta time."""
+	var speed_1s: float = Physics.update_speed(0.0, 10.0, 5.0, true, false, 100.0, 1.0)
+	var speed_0_5s: float = Physics.update_speed(0.0, 10.0, 5.0, true, false, 100.0, 0.5)
+	assert_float(speed_1s).is_equal_approx(speed_0_5s * 2.0, 0.001)
+
+# ============================================================================
+# Stopping Distance
+# ============================================================================
+
+
+func test_stopping_distance_formula():
+	"""stopping_distance = v^2 / (2a)."""
+	# v=20, a=10 -> d = 400 / 20 = 20
+	var dist: float = Physics.stopping_distance(20.0, 10.0)
+	assert_float(dist).is_equal_approx(20.0, 0.001)
+
+
+func test_stopping_distance_zero_speed():
+	"""Already stopped -> zero distance."""
+	var dist: float = Physics.stopping_distance(0.0, 10.0)
+	assert_float(dist).is_equal_approx(0.0, 0.001)
+
+
+func test_stopping_distance_zero_deceleration():
+	"""No deceleration -> infinite stopping distance (can't stop)."""
+	var dist: float = Physics.stopping_distance(10.0, 0.0)
+	assert_bool(is_inf(dist)).is_true()
+
+
+func test_double_speed_quadruples_stopping_distance():
+	"""Stopping distance scales with v^2, so doubling speed quadruples distance."""
+	var d1: float = Physics.stopping_distance(10.0, 10.0)
+	var d2: float = Physics.stopping_distance(20.0, 10.0)
+	assert_float(d2).is_equal_approx(d1 * 4.0, 0.001)
+
+# ============================================================================
+# Elastic Collision Resolution
+# ============================================================================
+
+
+func test_elastic_collision_equal_masses_exchange_velocities():
+	"""Two equal masses: one moving at 10, one stationary -> they exchange."""
+	var body_a: Dictionary = _make_body(10.0, Vector2(10.0, 0.0))
+	var body_b: Dictionary = _make_body(10.0, Vector2.ZERO)
+	var pos_a: Vector2 = Vector2.ZERO
+	var pos_b: Vector2 = Vector2.RIGHT * 5.0
+
+	Physics.elastic_collision(body_a, body_b, pos_a, pos_b)
+
+	# After 1D elastic collision with equal masses:
+	# body_a should have 0, body_b should have 10
+	assert_float(body_a["velocity"].x).is_equal_approx(0.0, 0.001)
+	assert_float(body_b["velocity"].x).is_equal_approx(10.0, 0.001)
+
+
+func test_elastic_collision_heavy_hits_light():
+	"""A heavy train hits a light enemy: train barely slows, enemy flies off."""
+	var body_a: Dictionary = _make_body(100.0, Vector2(5.0, 0.0)) # Heavy train
+	var body_b: Dictionary = _make_body(1.0, Vector2.ZERO) # Light enemy
+	var pos_a: Vector2 = Vector2.ZERO
+	var pos_b: Vector2 = Vector2.RIGHT * 3.0
+
+	Physics.elastic_collision(body_a, body_b, pos_a, pos_b)
+
+	# Train should slow slightly, enemy should fly off fast
+	assert_bool(body_a["velocity"].x < 5.0).is_true()
+	assert_bool(body_a["velocity"].x > 4.0).is_true()
+	assert_bool(body_b["velocity"].x > 8.0).is_true()
+
+
+func test_elastic_collision_light_hits_heavy():
+	"""A light enemy hits a heavy train: enemy bounces back, train barely affected."""
+	var body_a: Dictionary = _make_body(1.0, Vector2(5.0, 0.0)) # Light enemy coming at train
+	var body_b: Dictionary = _make_body(100.0, Vector2.ZERO) # Heavy stationary train
+	var pos_a: Vector2 = Vector2.ZERO
+	var pos_b: Vector2 = Vector2.RIGHT * 3.0
+
+	Physics.elastic_collision(body_a, body_b, pos_a, pos_b)
+
+	# Enemy should bounce backward (x velocity becomes negative)
+	assert_bool(body_a["velocity"].x < 0.0).is_true()
+	# Train should barely move (heavy mass absorbs little)
+	assert_bool(absf(body_b["velocity"].x) < 0.5).is_true()
+
+
+func test_elastic_collision_already_separating():
+	"""If bodies are already moving apart, no collision impulse."""
+	var body_a: Dictionary = _make_body(10.0, Vector2(-5.0, 0.0)) # Moving left
+	var body_b: Dictionary = _make_body(10.0, Vector2(5.0, 0.0)) # Moving right
+	var pos_a: Vector2 = Vector2.ZERO
+	var pos_b: Vector2 = Vector2.RIGHT * 3.0
+
+	Physics.elastic_collision(body_a, body_b, pos_a, pos_b)
+
+	assert_float(body_a["velocity"].x).is_equal_approx(-5.0, 0.001)
+	assert_float(body_b["velocity"].x).is_equal_approx(5.0, 0.001)
+
+
+func test_elastic_collision_zero_mass_noop():
+	"""Zero mass bodies should not produce division errors."""
+	var body_a: Dictionary = _make_body(0.0, Vector2(5.0, 0.0))
+	var body_b: Dictionary = _make_body(10.0, Vector2.ZERO)
+	var pos_a: Vector2 = Vector2.ZERO
+	var pos_b: Vector2 = Vector2.RIGHT * 3.0
+
+	# Should not crash or produce NaN
+	Physics.elastic_collision(body_a, body_b, pos_a, pos_b)
+
+	assert_bool(body_a["velocity"].x > -INF).is_true()
+	assert_bool(body_b["velocity"].x > -INF).is_true()
+
+# ============================================================================
+# Train Push (specialized collision)
+# ============================================================================
+
+
+func test_train_push_enemy_bounces_forward():
+	"""Train pushes a stationary enemy forward."""
+	var result: Dictionary = Physics.train_push(
+		100.0, # train_mass
+		5.0, # train_speed
+		2.0, # target_mass
+		Vector2.ZERO, # target_velocity (stationary)
+		Vector2.RIGHT, # direction
+	)
+
+	assert_bool(result["target_new_velocity"].x > 0.0).is_true()
+	assert_bool(result["train_new_speed"] < 5.0).is_true()
+
+
+func test_train_push_heavy_enemy_slows_train_more():
+	"""Pushing a heavier enemy slows the train more."""
+	var result_light: Dictionary = Physics.train_push(100.0, 5.0, 1.0, Vector2.ZERO, Vector2.RIGHT)
+	var result_heavy: Dictionary = Physics.train_push(100.0, 5.0, 50.0, Vector2.ZERO, Vector2.RIGHT)
+
+	assert_bool(result_heavy["train_new_speed"] < result_light["train_new_speed"]).is_true()
+
+
+func test_train_push_enemy_moving_away():
+	"""If enemy is already moving away from train, no meaningful push."""
+	var result: Dictionary = Physics.train_push(
+		100.0,
+		5.0, # train
+		2.0,
+		Vector2.RIGHT * 10, # enemy moving away at 10 m/s
+		Vector2.RIGHT,
+	)
+
+	assert_float(result["train_new_speed"]).is_equal_approx(5.0, 0.001)
+	assert_float(result["target_new_velocity"].x).is_equal_approx(10.0, 0.001)
+
+
+func test_train_push_direction_normalization():
+	"""Direction vector is normalized regardless of length."""
+	var result1: Dictionary = Physics.train_push(100.0, 5.0, 2.0, Vector2.ZERO, Vector2.RIGHT * 100)
+	var result2: Dictionary = Physics.train_push(100.0, 5.0, 2.0, Vector2.ZERO, Vector2.RIGHT)
+
+	# Results should be identical since direction is normalized
+	assert_float(result1["train_new_speed"]).is_equal_approx(result2["train_new_speed"], 0.001)
+	assert_float(result1["target_new_velocity"].x).is_equal_approx(result2["target_new_velocity"].x, 0.001)
+
+# ============================================================================
+# Weight Scaling Feel - Gameplay Integration
+# ============================================================================
+
+
+func test_full_train_acceleration_is_slower():
+	"""A full train (50 units weight) accelerates slower than engine-only (10 units)."""
+	var light_acc: float = Physics.effective_acceleration(200.0, 10.0)
+	var heavy_acc: float = Physics.effective_acceleration(200.0, 50.0)
+
+	assert_bool(heavy_acc < light_acc).is_true()
+	assert_float(light_acc).is_equal_approx(20.0, 0.001)
+	assert_float(heavy_acc).is_equal_approx(4.0, 0.001)
+
+
+func test_full_train_braking_distance_is_longer():
+	"""A full train takes longer to stop than engine-only."""
+	var light_stop: float = Physics.stopping_distance(10.0, Physics.effective_deceleration(100.0, 10.0))
+	var heavy_stop: float = Physics.stopping_distance(10.0, Physics.effective_deceleration(100.0, 50.0))
+
+	assert_bool(heavy_stop > light_stop).is_true()
+	assert_float(light_stop).is_equal_approx(5.0, 0.001)
+
+
+func test_momentum_ratio_matches_weight_ratio():
+	"""5x weight should give 5x momentum, confirming linear scaling."""
+	var engine_momentum: float = Physics.momentum(10.0, 10.0)
+	var full_train_momentum: float = Physics.momentum(10.0, 50.0)
+
+	assert_bool(full_train_momentum > engine_momentum).is_true()
+	assert_float(full_train_momentum / engine_momentum).is_equal_approx(5.0, 0.001)
