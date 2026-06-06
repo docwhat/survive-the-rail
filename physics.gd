@@ -16,6 +16,10 @@ const COLLISION_MARGIN: float = 0.01
 ## Extra overlap (in meters) added to collision detection to prevent
 ## tunneling at low frame rates.
 
+const ROLLING_FRICTION_FACTOR: float = 0.1
+## Fraction of deceleration (brake force rate) applied as rolling friction
+## when coasting. Coasting slowdown is independent of engine power.
+
 ## --- Collision Detection ---
 
 
@@ -32,6 +36,17 @@ static func circles_ahead(
 	var distance: float = position_a.distance_to(position_b)
 	var collision_distance: float = radius_a + radius_b + COLLISION_MARGIN
 	return distance < collision_distance
+
+
+## Convenience wrapper around `circles_ahead` with a semantic name for
+## callers that just need a yes/no answer.
+static func is_colliding(
+		position_a: Vector2,
+		radius_a: float,
+		position_b: Vector2,
+		radius_b: float,
+) -> bool:
+	return circles_ahead(position_a, radius_a, position_b, radius_b)
 
 ## --- Momentum ---
 
@@ -90,8 +105,9 @@ static func update_speed(
 	elif is_braking:
 		speed_change = -deceleration * delta
 	else:
-		# Rolling friction: gradual slowdown when no input
-		speed_change = -acceleration * 0.1 * delta
+		# Rolling friction: gradual slowdown when no input.
+		# Uses deceleration (brake force rate), not engine acceleration.
+		speed_change = -deceleration * ROLLING_FRICTION_FACTOR * delta
 
 	var new_speed: float = current_speed + speed_change
 	return clampf(new_speed, 0.0, max_speed)
@@ -123,9 +139,15 @@ static func elastic_collision(
 		position_b: Vector2,
 		restitution: float = 1.0,
 ) -> void:
-	if body_a.has("mass") and body_b.has("mass"):
-		if body_a["mass"] <= 0 or body_b["mass"] <= 0:
-			return
+	# Type assertion: validate required keys exist before mutating.
+	if not body_a.has("mass") or not body_a.has("velocity"):
+		push_error("elastic_collision: body_a missing 'mass' or 'velocity' key")
+		return
+	if not body_b.has("mass") or not body_b.has("velocity"):
+		push_error("elastic_collision: body_b missing 'mass' or 'velocity' key")
+		return
+	if body_a["mass"] <= 0 or body_b["mass"] <= 0:
+		return
 
 	var normal: Vector2 = (position_b - position_a).normalized()
 	var rel_velocity: Vector2 = body_a["velocity"] - body_b["velocity"]
