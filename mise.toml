@@ -1,5 +1,7 @@
 [env]
 
+GODOT_BIN = "{{ exec(command='which godot') | trim }}"
+
 [tasks.clean]
 description = "Clean all exported builds and other cruft"
 run = "rm -rf build"
@@ -23,7 +25,7 @@ run = "(godot --path . --editor >& /dev/null &)"
 
 [tasks.test]
 description = "Run the GUT tests"
-run = "bash mise-tasks/test"
+run = "addons/gdUnit4/runtest.sh --add test"
 
 [tasks.export-all]
 depends = ["export-web", "export-macos", "export-windows", "export-linux"]

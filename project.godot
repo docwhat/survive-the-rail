@@ -44,3 +44,7 @@ gdscript/warnings/confusable_identifier=2
 [editor]
 
 plugins=PackedStringArray("res://addons/gdUnit4/plugin.cfg")
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gdUnit4/plugin.cfg")
