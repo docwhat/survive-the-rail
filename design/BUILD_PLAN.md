@@ -64,6 +64,33 @@ Each task depends on the tasks listed above it. Complete each task before moving
 
 ---
 
+### Task 2a — Physics Polish & Hygiene
+
+**Description:** Address the code review findings from Task 2: fix rolling friction semantics, add static return types to silence GUT warnings, and strengthen the dictionary-based collision contract.
+
+**Includes:**
+
+- `physics.gd` — Rename rolling friction constant: extract `-acceleration * 0.1` into a dedicated `const ROLLING_FRICTION_FACTOR: float = 0.1` and use `effective_deceleration(brake_force, total_weight) * ROLLING_FRICTION_FACTOR` for coasting slowdown
+- `physics.gd` — Add `is_colliding()` wrapper around `circles_ahead()` for semantic callsites in later tasks
+- `physics.gd` — Add type assertion at the top of `elastic_collision()` to validate `"mass"` and `"velocity"` keys exist before mutating
+- `test/test_physics.gd` — Add `-> void` static return type to all 37 test method signatures (silences GUT "no static return type" warnings in CI)
+- `test/test_physics.gd` — Rename helper `_make_body()` to `_make_body_dict()` to avoid confusion with a future `PhysicsBody` class
+
+**Acceptance Criteria:**
+
+- All 37 GUT tests still pass
+- No `WARNING: Function ... has no static return type` messages in test output
+- Rolling friction uses deceleration (brake force), not acceleration — coasting slowdown is independent of engine power
+- `is_colliding()` exists and works as a clean wrapper for the 1-line circle overlap check
+- `elastic_collision()` exits early with a clear error if required keys are missing (not a silent crash later)
+
+**Escalation Triggers:**
+
+- Refactoring dictionary keys breaks callers who rely on the loose contract
+- Rolling friction formula needs tuning for actual train feel
+
+---
+
 ### Task 3 — Track Laying System
 
 **Description:** Pre-round track placement using discrete segments (like a child's train set). Segments snap to an infinite grid. Track has an explicit starting point (train yard) and must form a continuous path from that point. New segments can only be added from the current track end.
@@ -516,7 +543,8 @@ Each task depends on the tasks listed above it. Complete each task before moving
 | ---- | -------------------------- | ---------- | --------------------------------- |
 | 1    | Project setup              | —          | Yes (headless Godot, mise, trunk) |
 | 2    | Physics system             | —          | Yes (GUT)                         |
-| 3    | Track laying               | 2          | Yes (GUT + manual)                |
+| 2a   | Physics polish & hygiene   | 2          | Yes (GUT)                         |
+| 3    | Track laying               | 2a         | Yes (GUT + manual)                |
 | 4    | Train controls (keyboard)  | 2, 3       | Yes (GUT + manual)                |
 | 5    | Train controls (G.U.I.D.E) | 4          | Yes (manual)                      |
 | 6    | Car auto-fire              | 2, 4       | Yes (GUT)                         |

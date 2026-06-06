@@ -19,21 +19,16 @@ const COLLISION_MARGIN: float = 0.01
 ## --- Collision Detection ---
 
 
-## Returns true if two circles overlap (with margin).
+## Detect collision between two circle entities.
+## @param position_a / position_b: Center positions in world space
+## @param radius_a / radius_b: Collision radii in world units
+## @return True if the circles are touching or overlapping.
 static func circles_ahead(
 		position_a: Vector2,
 		radius_a: float,
 		position_b: Vector2,
 		radius_b: float,
 ) -> bool:
-	"""
-	Detect collision between two circle entities.
-
-	Parameters:
-	- position_a / position_b: Center positions in world space
-	- radius_a / radius_b: Collision radii in world units
-	Returns: True if the circles are touching or overlapping.
-	"""
 	var distance: float = position_a.distance_to(position_b)
 	var collision_distance: float = radius_a + radius_b + COLLISION_MARGIN
 	return distance < collision_distance
@@ -41,49 +36,44 @@ static func circles_ahead(
 ## --- Momentum ---
 
 
-## Calculate momentum for an entity.
+## Return the momentum of a moving entity.
 ## momentum = speed * mass
 static func momentum(speed: float, mass: float) -> float:
-	"""Return the momentum of a moving entity."""
 	return speed * mass
 
 
-## Calculate effective acceleration using weight scaling.
-## effective_acceleration = engine_power / total_weight
-## Heavier trains accelerate more slowly.
+## Calculate acceleration scaled inversely by total weight.
+## @param engine_power: Fixed output of the engine (arbitrary units)
+## @param total_weight: Sum of engine + all car weights (must be > 0)
+## @return Acceleration in units per second squared.
 static func effective_acceleration(engine_power: float, total_weight: float) -> float:
-	"""
-	Calculate acceleration scaled inversely by total weight.
-
-	Parameters:
-	- engine_power: Fixed output of the engine (arbitrary units)
-	- total_weight: Sum of engine + all car weights (must be > 0)
-	Returns: Acceleration in units per second squared.
-	"""
 	if total_weight <= 0:
 		return INF
 	return engine_power / total_weight
 
 
-## Calculate effective deceleration using weight scaling.
-## effective_deceleration = brake_force / total_weight
-## Heavier trains take longer to stop.
+## Calculate deceleration scaled inversely by total weight.
+## @param brake_force: Fixed braking capability (arbitrary units)
+## @param total_weight: Sum of engine + all car weights (must be > 0)
+## @return Deceleration in units per second squared.
 static func effective_deceleration(brake_force: float, total_weight: float) -> float:
-	"""
-	Calculate deceleration scaled inversely by total weight.
-
-	Parameters:
-	- brake_force: Fixed braking capability (arbitrary units)
-	- total_weight: Sum of engine + all car weights (must be > 0)
-	Returns: Deceleration in units per second squared.
-	"""
 	if total_weight <= 0:
 		return INF
 	return brake_force / total_weight
 
 
-## Update speed after a time step, applying acceleration or deceleration.
-## Returns the new speed (clamped to [0, max_speed]).
+## Apply throttle or brake to current speed over a time step.
+##
+## Only one input (throttle or brake) can be active at a time.
+## If neither is active, speed drifts toward 0 (rolling friction).
+## @param current_speed: Current speed of the entity
+## @param acceleration: Engine-driven acceleration rate
+## @param deceleration: Brake-driven deceleration rate
+## @param is_throttling: Whether the engine is accelerating
+## @param is_braking: Whether brakes are applied
+## @param max_speed: Speed cap to enforce
+## @param delta: Time step since last frame
+## @return Clamped speed in [0, max_speed].
 static func update_speed(
 		current_speed: float,
 		acceleration: float,
@@ -93,14 +83,6 @@ static func update_speed(
 		max_speed: float,
 		delta: float,
 ) -> float:
-	"""
-	Apply throttle or brake to current speed over a time step.
-
-	Only one input (throttle or brake) can be active at a time.
-	If neither is active, speed drifts toward 0 (rolling friction).
-
-	Returns clamped speed in [0, max_speed].
-	"""
 	var speed_change: float = 0.0
 
 	if is_throttling:
@@ -115,13 +97,12 @@ static func update_speed(
 	return clampf(new_speed, 0.0, max_speed)
 
 
-## Calculate the time needed to stop from current_speed using deceleration.
+## Calculate the distance required to stop from current speed.
+## Uses v^2 / (2a) physics for constant deceleration.
+## @param current_speed: Speed to stop from
+## @param deceleration: Deceleration rate (must be > 0)
+## @return Distance required to stop; INF if deceleration <= 0.
 static func stopping_distance(current_speed: float, deceleration: float) -> float:
-	"""
-	Calculate the distance required to stop from current speed.
-
-	Uses v^2 / (2a) physics for constant deceleration.
-	"""
 	if deceleration <= 0:
 		return INF
 	return (current_speed * current_speed) / (2.0 * deceleration)
@@ -129,12 +110,12 @@ static func stopping_distance(current_speed: float, deceleration: float) -> floa
 ## --- Elastic Collisions ---
 
 
-## Resolve an elastic collision between two entities.
-## Modifies velocities in place (passed by reference via dictionary).
+## Solve a 1D elastic collision along the collision normal.
 ##
-## Uses 1D elastic collision along the collision normal.
-## For our top-down game, this means entities bounce apart along
-## the line connecting their centers.
+## Mutates body_a["velocity"] and body_b["velocity"].
+## @param body_a / body_b: Dictionaries with "mass" and "velocity" (Vector2) keys
+## @param position_a / position_b: Current positions (for normal calculation)
+## @param restitution: Bounciness (1.0 = perfectly elastic, 0.0 = inelastic)
 static func elastic_collision(
 		body_a: Dictionary,
 		body_b: Dictionary,
@@ -142,16 +123,6 @@ static func elastic_collision(
 		position_b: Vector2,
 		restitution: float = 1.0,
 ) -> void:
-	"""
-	Solve a 1D elastic collision along the collision normal.
-
-	Parameters:
-	- body_a / body_b: Dictionaries with "mass" and "velocity" (Vector2) keys
-	- position_a / position_b: Current positions (for normal calculation)
-	- restitution: Bounciness (1.0 = perfectly elastic, 0.0 = inelastic)
-
-	Mutates body_a["velocity"] and body_b["velocity"].
-	"""
 	if body_a.has("mass") and body_b.has("mass"):
 		if body_a["mass"] <= 0 or body_b["mass"] <= 0:
 			return
@@ -174,9 +145,17 @@ static func elastic_collision(
 	body_b["velocity"] += normal * (impulse / mass_b)
 
 
-## Resolve a train-vs-entity push (train maintains course, entity bounces).
-## Simpler than full elastic collision — the train barely slows down
-## because it's much heavier than individual entities.
+## Resolve a collision between a heavy train and a lighter entity.
+##
+## The train continues roughly in its direction; the target bounces off.
+## Uses conservation of momentum with reduced mass ratio for feel.
+## @param train_mass: Mass of the train
+## @param train_speed: Speed of the train before collision
+## @param target_mass: Mass of the target entity
+## @param target_velocity: Velocity of the target entity (Vector2)
+## @param direction: Train's travel direction (normalized)
+## @param restitution: Bounciness (0.8 default)
+## @return Dictionary with "train_new_speed" and "target_new_velocity".
 static func train_push(
 		train_mass: float,
 		train_speed: float,
@@ -185,16 +164,6 @@ static func train_push(
 		direction: Vector2,
 		restitution: float = 0.8,
 ) -> Dictionary:
-	"""
-	Resolve a collision between a heavy train and a lighter entity.
-
-	The train continues roughly in its direction; the target bounces off.
-	Uses conservation of momentum with reduced mass ratio for feel.
-
-	Returns a dictionary with:
-		- "train_new_speed": Speed of the train after collision
-		- "target_new_velocity": New velocity of the target (Vector2)
-	"""
 	var direction_vec: Vector2 = direction.normalized()
 
 	# Train velocity before
