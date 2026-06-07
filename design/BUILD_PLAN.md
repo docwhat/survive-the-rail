@@ -123,7 +123,7 @@ Each task depends on the tasks listed above it. Complete each task before moving
 
 ---
 
-### Task 4 — Train Controls (Keyboard)
+### Task 4 — Train Controls (Keyboard) ✅ COMPLETE
 
 **Description:** Train entity with throttle/brakes using keyboard input, moving along the track with physics. Train moves segment-by-segment; rotation snaps to segment orientation. Cars pivot at couplings when turning.
 
@@ -153,6 +153,7 @@ Each task depends on the tasks listed above it. Complete each task before moving
 - Train takes damage from enemies
 - GUT tests for train physics behavior pass
 - Train is fully playable with keyboard alone
+- Additional: `train_renderer.gd`, `track_renderer.gd`, `ui_renderer.gd`, visual scene `main.tscn`
 
 **Escalation Triggers:**
 
