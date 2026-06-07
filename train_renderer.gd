@@ -116,11 +116,15 @@ func _car_position_on_curve(
 ) -> Vector2:
 	var segments: Array[TrackSegment] = track.get_segments()
 	if segments.size() == 0:
-		return segments[train.segment_index].grid_position as Vector2 * Track.CELL_SIZE
+		return Vector2.ZERO
 
 	var seg: TrackSegment = segments[train.segment_index]
 	var entry_dir: Vector2 = seg.connections[0] as Vector2
 	var exit_dir: Vector2 = seg.connections[1] as Vector2
+	var arc_radius: float = 32.0
+	var curve_center: Vector2 = seg.grid_position as Vector2 * Track.CELL_SIZE
+
+	# Angles from center to entry/exit edges (same as train.gd)
 	var entry_angle: float = atan2(entry_dir.y, entry_dir.x)
 	var exit_angle: float = atan2(exit_dir.y, exit_dir.x)
 	var diff: float = exit_angle - entry_angle
@@ -129,17 +133,10 @@ func _car_position_on_curve(
 	elif diff < -PI:
 		diff += 2.0 * PI
 
-	# Arc geometry must match _curve_position in train.gd.
-	var arc_radius: float = Track.CELL_SIZE
-	var curve_center: Vector2 = seg.grid_position as Vector2 * Track.CELL_SIZE
-	var arc_entry: Vector2 = curve_center + entry_dir * arc_radius
-	var arc_exit: Vector2 = curve_center + exit_dir * arc_radius
-	var arc_center: Vector2 = Vector2(arc_entry.x, arc_exit.y)
-
 	# Engine angle on the arc
 	var engine_angle: float = entry_angle + diff * train.segment_progress
 
-	# Arc length = radius * |diff| = CELL_SIZE * PI/2.
+	# Arc length = radius * |diff| = 32 * PI/2.
 	# Cars trail behind by CAR_SPACING along the arc.
 	var arc_length: float = arc_radius * abs(diff)
 	var car_arc_offset: float = (car_index + 1) * CAR_SPACING
@@ -147,10 +144,7 @@ func _car_position_on_curve(
 	# Car's angle on the arc (behind the engine)
 	var new_angle: float = engine_angle + car_arc_offset / arc_length * diff
 
-	return Vector2(
-		arc_center.x + cos(new_angle) * arc_radius,
-		arc_center.y + sin(new_angle) * arc_radius,
-	)
+	return curve_center + Vector2(cos(new_angle), sin(new_angle)) * arc_radius
 
 
 ## Get rotation for a car on a curve segment.
@@ -165,19 +159,11 @@ func _car_rotation_on_curve(car_index: int, engine_rotation: float) -> float:
 
 	var entry_dir: Vector2 = seg.connections[0] as Vector2
 	var exit_dir: Vector2 = seg.connections[1] as Vector2
-	var arc_radius: float = Track.CELL_SIZE
-	var curve_center: Vector2 = seg.grid_position as Vector2 * Track.CELL_SIZE
-	var arc_entry: Vector2 = curve_center + entry_dir * arc_radius
-	var arc_exit: Vector2 = curve_center + exit_dir * arc_radius
-	var arc_ctr: Vector2 = Vector2(arc_entry.x, arc_exit.y)
-	var entry_angle: float = atan2(
-		arc_entry.y - arc_ctr.y,
-		arc_entry.x - arc_ctr.x,
-	)
-	var exit_angle: float = atan2(
-		arc_exit.y - arc_ctr.y,
-		arc_exit.x - arc_ctr.x,
-	)
+	var arc_radius: float = 32.0
+
+	# Arc geometry (same as _curve_position)
+	var entry_angle: float = atan2(entry_dir.y, entry_dir.x)
+	var exit_angle: float = atan2(exit_dir.y, exit_dir.x)
 	var diff: float = exit_angle - entry_angle
 	if diff > PI:
 		diff -= 2.0 * PI

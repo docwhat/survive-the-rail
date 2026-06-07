@@ -174,6 +174,7 @@ a mismatch between the coordinate systems used for different segment types.
 ### The coordinate model
 
 The track uses a cell-based coordinate system:
+
 - `CELL_SIZE = 64` pixels defines the grid cell width and height.
 - Each segment's grid position `grid_position` (Vector2i) maps to world center
   `grid_position * CELL_SIZE`.
@@ -189,7 +190,8 @@ The track uses a cell-based coordinate system:
 A straight spans **edge-to-edge** within its cell — exactly `CELL_SIZE` pixels.
 
 Position formula:
-```
+
+```gdscript
   center - exit_dir * 32 + exit_dir * progress * CELL_SIZE
 ```
 
@@ -198,6 +200,7 @@ Position formula:
 - Total travel distance: `CELL_SIZE = 64` pixels
 
 Example: straight at grid `(2,0)` with exit direction RIGHT:
+
 - Center: `(128, 0)`, exit_dir: `(1, 0)`
 - Entry edge: `(128, 0) - (1, 0) * 32 = (96, 0)`
 - Exit edge: `(128, 0) + (1, 0) * 32 = (160, 0)`
@@ -214,12 +217,14 @@ centered on the curve cell's grid center.
 - Arc spans from entry edge to exit edge (always ±90°)
 
 Position formula:
-```
+
+```gdscript
   arc_center + Vector2(cos(entry_angle + diff * progress),
                        sin(entry_angle + diff * progress)) * 32
 ```
 
 Example: curve at grid `(3,0)` with connections `[LEFT, DOWN]`:
+
 - Arc center: `(192, 0)`, radius: `32`
 - Entry angle: `atan2(0, -1) = π`
 - Exit angle: `atan2(1, 0) = π/2`
@@ -230,7 +235,8 @@ Example: curve at grid `(3,0)` with connections `[LEFT, DOWN]`:
 ### Orientation on curves
 
 The train's rotation interpolates along the arc:
-```
+
+```gdscript
   entry_angle + diff * segment_progress
 ```
 
@@ -239,7 +245,8 @@ This gives smooth heading changes through the curve.
 ### Travel direction on curves
 
 The tangent direction at any point on the arc:
-```
+
+```gdscript
   Vector2(cos(angle), sin(angle))
   where angle = entry_angle + diff * segment_progress
 ```
@@ -263,7 +270,7 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 3. **Offset-arc center tricks** — unnecessary complication. The arc is centered
    on the curve cell's grid center; the radius and angles handle everything.
 4. **Treating `connections[0]` as the previous segment's direction** — it's the
-   direction *from the curve cell center to the entry edge*, which is the
+   direction _from the curve cell center to the entry edge_, which is the
    direction the train enters the curve (the exit direction of the previous
    straight).
 

@@ -118,27 +118,21 @@ func _draw_curve_segment(pos: Vector2, seg: TrackSegment) -> void:
 	var conn: Array[Vector2i] = seg.connections
 	var start_dir: Vector2 = conn[0] as Vector2
 	var end_dir: Vector2 = conn[1] as Vector2
-	var radius: float = Track.CELL_SIZE
+	var radius: float = 32.0
 
-	# Arc geometry matching train.gd
-	var arc_entry: Vector2 = pos + start_dir * radius
-	var arc_exit: Vector2 = pos + end_dir * radius
-	var arc_center: Vector2 = Vector2(arc_entry.x, arc_exit.y)
-
-	# Draw fill polygon
+	# Draw fill polygon: radii to arc center
+	var entry_point: Vector2 = pos + start_dir * radius
+	var exit_point: Vector2 = pos + end_dir * radius
 	var filled_points: PackedVector2Array = PackedVector2Array()
-	filled_points.append(arc_entry)
-	filled_points.append(arc_exit)
-	filled_points.append(arc_entry)
+	filled_points.append(pos)
+	filled_points.append(entry_point)
+	filled_points.append(exit_point)
+	filled_points.append(pos)
 	draw_colored_polygon(filled_points, SEGMENT_COLOR)
 
-	# Draw the arc outline using the same arc function
-	var arc_points: PackedVector2Array = _draw_arc(arc_center, start_dir, end_dir, radius)
+	# Draw the arc outline
+	var arc_points: PackedVector2Array = _draw_arc(pos, start_dir, end_dir, radius)
 	draw_polyline(arc_points, SEGMENT_OUTLINE, 2.0)
-
-	# Draw subtle connecting lines to arc center (shows the radius)
-	draw_line(arc_center, arc_entry, SEGMENT_OUTLINE, 1.0)
-	draw_line(arc_center, arc_exit, SEGMENT_OUTLINE, 1.0)
 
 
 ## Generate arc points between two directions at a center point.
@@ -151,20 +145,23 @@ func _draw_arc(
 	var points: PackedVector2Array = PackedVector2Array()
 	var steps: int = 12
 
-	var start_angle: float = atan2(start_dir.y, start_dir.x)
-	var end_angle: float = atan2(end_dir.y, end_dir.x)
+	# Entry/exit points on the arc (edge positions)
+	var entry_point: Vector2 = center + start_dir * radius
+	var exit_point: Vector2 = center + end_dir * radius
 
 	# Determine rotation direction (curves turn 90 degrees)
-	var diff: float = end_angle - start_angle
+	var entry_angle: float = atan2(entry_point.y - center.y, entry_point.x - center.x)
+	var exit_angle: float = atan2(exit_point.y - center.y, exit_point.x - center.x)
+	var diff: float = exit_angle - entry_angle
 	if diff > PI:
 		diff -= 2.0 * PI
 	elif diff < -PI:
 		diff += 2.0 * PI
 
-	# Generate intermediate points (exclude endpoints to avoid duplication)
+	# Generate intermediate arc points (exclude endpoints to avoid duplication)
 	for i in range(1, steps):
 		var t: float = i / steps
-		var angle: float = start_angle + diff * t
+		var angle: float = entry_angle + diff * t
 		var px: float = center.x + cos(angle) * radius
 		var py: float = center.y + sin(angle) * radius
 		points.append(Vector2(px, py))
