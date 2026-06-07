@@ -10,8 +10,8 @@ var track: Track = null
 var is_throttle: bool = false
 var is_brake: bool = false
 
-var train_renderer: CanvasItem = null
-var track_renderer: CanvasItem = null
+var train_renderer: Control = null
+var track_renderer: Control = null
 var ui_renderer: CanvasLayer = null
 
 
@@ -37,8 +37,8 @@ func _ready() -> void:
 	_place_initial_track()
 
 	# Reference renderer nodes from scene
-	train_renderer = $TrainRenderer as CanvasItem
-	track_renderer = $TrackRenderer as CanvasItem
+	train_renderer = $TrainRenderer as Control
+	track_renderer = $TrackRenderer as Control
 	ui_renderer = $UIDisplay as CanvasLayer
 
 

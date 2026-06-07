@@ -1,16 +1,15 @@
 extends CanvasItem
 ## Renders the train data model to visible graphics.
-## Draws engine + cars as rectangles with pivot rotation on curves.
-## Uses world-space coordinates with camera offset.
+## Draws engine + cars as rotated rectangles.
 
 var train: Train = null
 ## Reference to the Train data model.
 
 var track: Track = null
-## Reference to the Track data model (for direction/pivot calculations).
+## Reference to the Track data model.
 
 var camera_offset: Vector2 = Vector2.ZERO
-## Camera offset to keep the train centered in view.
+## Camera offset to keep the train centered.
 
 const ENGINE_COLOR: Color = Color(0.8, 0.2, 0.15)
 const ENGINE_OUTLINE: Color = Color(0.5, 0.1, 0.08)
@@ -21,6 +20,8 @@ const CAR_COLORS: Array[Color] = [
 	Color(0.6, 0.2, 0.6), # Purple - special
 ]
 const CAR_OUTLINE: Color = Color(0.1, 0.25, 0.5)
+
+const CAR_SPACING: float = 30.0
 
 
 func update(train_model: Train, track_model: Track, cam_offset: Vector2) -> void:
@@ -37,13 +38,30 @@ func _draw() -> void:
 	var screen_engine: Vector2 = train.position - camera_offset
 	var rotation: float = train.update_orientation(track)
 
+	# Determine if train is on a curve
+	var segments: Array[TrackSegment] = track.get_segments()
+	var is_on_curve: bool = false
+	if segments.size() > 0 and train.segment_index >= 0:
+		var idx: int = mini(train.segment_index, segments.size() - 1)
+		is_on_curve = segments[idx].get_segment_type() == 1
+
 	# Draw cars behind the engine
 	var car_count: int = train.get_car_count()
 	for i in range(car_count):
-		# Position cars behind engine using the engine's current travel direction
-		var travel_dir: Vector2 = train.get_travel_direction(track)
-		var screen_car: Vector2 = screen_engine - travel_dir.normalized() * (i + 1) * 30.0
-		_draw_car(screen_car, rotation, i, car_count)
+		var screen_car: Vector2
+		var car_rotation: float
+
+		if is_on_curve:
+			# Position cars along the arc behind the engine
+			screen_car = _car_position_on_curve(i)
+			car_rotation = _car_rotation_on_curve(i, rotation)
+		else:
+			# Straight: linear spacing behind engine
+			var travel_dir: Vector2 = train.get_travel_direction(track)
+			screen_car = screen_engine - travel_dir.normalized() * (i + 1) * CAR_SPACING
+			car_rotation = rotation + 0.0
+
+		_draw_car(screen_car, car_rotation, i, car_count)
 
 	# Draw the engine at the front
 	_draw_engine(screen_engine, rotation)
@@ -52,26 +70,24 @@ func _draw() -> void:
 	draw_circle(screen_engine, 3.0, Color(1.0, 1.0, 0.0, 0.4))
 
 
-## Draw the train engine as a red rectangle with direction indicator.
+## Draw the train engine as a red rectangle with direction arrow.
 func _draw_engine(pos: Vector2, rotation: float) -> void:
 	var w: float = 32.0
 	var h: float = 16.0
 
-	# Draw rotated rectangle using corners
 	var corners: PackedVector2Array = _get_rect_corners(pos, w, h, rotation)
 	draw_colored_polygon(corners, ENGINE_COLOR)
 	draw_polyline(corners, ENGINE_OUTLINE, 2.0)
 
-	# Direction arrow at the front
+	# Arrow pointing forward
 	var tip: Vector2 = pos + Vector2.RIGHT.rotated(rotation) * (w / 2.0)
 	var wing_top: Vector2 = tip - Vector2.UP.rotated(rotation) * 3.0
 	var wing_bot: Vector2 = tip + Vector2.DOWN.rotated(rotation) * 3.0
-
 	draw_line(tip, wing_top, ENGINE_OUTLINE, 2.0)
 	draw_line(tip, wing_bot, ENGINE_OUTLINE, 2.0)
 
 
-## Get the 4 corners of a rectangle in world space.
+## Get the 4 corners of a rotated rectangle.
 func _get_rect_corners(
 		center: Vector2,
 		width: float,
@@ -82,49 +98,111 @@ func _get_rect_corners(
 	var half_w: float = width / 2.0
 	var half_h: float = height / 2.0
 
-	var local: Array[Vector2] = [
+	for v in [
 		Vector2(-half_w, -half_h),
 		Vector2(half_w, -half_h),
 		Vector2(half_w, half_h),
 		Vector2(-half_w, half_h),
-	]
-
-	for v in local:
+	]:
 		corners.append(center + v.rotated(rotation))
 
 	return corners
 
 
-## Draw a single car as a colored rectangle with pivot rotation.
-func _draw_car(pos: Vector2, base_rotation: float, car_index: int, total_cars: int) -> void:
+## Get screen position for a car on a curve segment.
+## Cars are spaced along the arc radius behind the engine.
+func _car_position_on_curve(
+		car_index: int,
+) -> Vector2:
+	var segments: Array[TrackSegment] = track.get_segments()
+	if segments.size() == 0:
+		return segments[train.segment_index].grid_position as Vector2 * Track.CELL_SIZE
+
+	var seg: TrackSegment = segments[train.segment_index]
+	var entry_dir: Vector2 = seg.connections[0] as Vector2
+	var exit_dir: Vector2 = seg.connections[1] as Vector2
+	var entry_angle: float = atan2(entry_dir.y, entry_dir.x)
+	var exit_angle: float = atan2(exit_dir.y, exit_dir.x)
+	var diff: float = exit_angle - entry_angle
+	if diff > PI:
+		diff -= 2.0 * PI
+	elif diff < -PI:
+		diff += 2.0 * PI
+
+	# The arc radius equals CELL_SIZE (distance from curve center to perimeter).
+	# The engine is on the outer arc at progress ~0.x.
+	# Cars trail behind on progressively larger arcs.
+	var arc_radius: float = Track.CELL_SIZE
+
+	# Engine angle on the arc
+	var engine_angle: float = entry_angle + diff * train.segment_progress
+
+	# Each car trails behind the engine by a portion of the arc.
+	# Arc length = CELL_SIZE * |diff| = CELL_SIZE * PI/2.
+	# Car spacing along the arc.
+	var arc_length: float = arc_radius * abs(diff)
+	var car_arc_offset: float = (car_index + 1) * CAR_SPACING
+
+	# The train enters the curve from the previous straight.
+	# At curve entry (progress 0), the engine is at the end of the arc entry point.
+	# Cars trail behind: if the engine is deep in the curve, cars may be
+	# on the previous straight segment.
+	var new_angle: float = engine_angle + car_arc_offset / arc_length * diff
+
+	# Center of the curve segment (world space)
+	var center: Vector2 = seg.grid_position as Vector2 * Track.CELL_SIZE
+
+	# Car position on the arc
+	return Vector2(
+		center.x + cos(new_angle) * arc_radius,
+		center.y + sin(new_angle) * arc_radius,
+	)
+
+
+## Get rotation for a car on a curve segment.
+func _car_rotation_on_curve(car_index: int, engine_rotation: float) -> float:
+	var segments: Array[TrackSegment] = track.get_segments()
+	if segments.size() == 0:
+		return engine_rotation
+
+	var seg: TrackSegment = segments[train.segment_index]
+	if seg.get_segment_type() != 1:
+		return engine_rotation
+
+	var entry_dir: Vector2 = seg.connections[0] as Vector2
+	var exit_dir: Vector2 = seg.connections[1] as Vector2
+	var entry_angle: float = atan2(entry_dir.y, entry_dir.x)
+	var exit_angle: float = atan2(exit_dir.y, exit_dir.x)
+	var diff: float = exit_angle - entry_angle
+	if diff > PI:
+		diff -= 2.0 * PI
+	elif diff < -PI:
+		diff += 2.0 * PI
+
+	var arc_radius: float = Track.CELL_SIZE
+	var arc_length: float = arc_radius * abs(diff)
+	var car_arc_offset: float = (car_index + 1) * CAR_SPACING
+
+	# Car's angle on the arc (slightly behind engine)
+	var new_angle: float = engine_rotation + car_arc_offset / arc_length * diff
+
+	return new_angle
+
+
+## Draw a single car as a colored rectangle.
+func _draw_car(pos: Vector2, rotation: float, car_index: int, _total_cars: int) -> void:
 	var w: float = 24.0
 	var h: float = 12.0
 
-	# Get car color by type (cycle through available colors)
 	var color_idx: int = car_index % CAR_COLORS.size()
 	var car_color: Color = CAR_COLORS[color_idx]
 
-	# Calculate pivot rotation for curve segments
-	# Cars trail behind the engine and pivot inward on curves.
-	# The pivot angle represents how much each car angles relative
-	# to the engine's direction — first car pivots most, others less.
-	var segments: Array[TrackSegment] = track.get_segments()
-	var pivot_angle: float = 0.0
-	if segments.size() > 0:
-		var seg: TrackSegment = segments[train.segment_index]
-		if seg.get_segment_type() == 1:
-			# Each car angles progressively less as it trails behind.
-			# The first car angles most toward the curve center.
-			pivot_angle = -(PI / 2.0) * ((car_index as float) / maxi(total_cars, 1))
-
-	var total_rotation: float = base_rotation + pivot_angle
-
-	var corners: PackedVector2Array = _get_rect_corners(pos, w, h, total_rotation)
+	var corners: PackedVector2Array = _get_rect_corners(pos, w, h, rotation)
 	draw_colored_polygon(corners, car_color)
 	draw_polyline(corners, CAR_OUTLINE, 1.5)
 
-	# Coupling points at top and bottom (rotated)
-	var top_coupling: Vector2 = pos + Vector2.UP.rotated(total_rotation) * (h / 2.0)
-	var bot_coupling: Vector2 = pos + Vector2.DOWN.rotated(total_rotation) * (h / 2.0)
-	draw_circle(top_coupling, 2.0, CAR_OUTLINE)
-	draw_circle(bot_coupling, 2.0, CAR_OUTLINE)
+	# Coupling points
+	var top: Vector2 = pos + Vector2.UP.rotated(rotation) * (h / 2.0)
+	var bot: Vector2 = pos + Vector2.DOWN.rotated(rotation) * (h / 2.0)
+	draw_circle(top, 2.0, CAR_OUTLINE)
+	draw_circle(bot, 2.0, CAR_OUTLINE)
