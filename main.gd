@@ -10,13 +10,36 @@ var track: Track = null
 var is_throttle: bool = false
 var is_brake: bool = false
 
+var train_renderer: CanvasItem = null
+var track_renderer: CanvasItem = null
+var ui_renderer: CanvasLayer = null
+
 
 func _ready() -> void:
+	# Initialize data models
 	train = Train.new()
-	train.initialize(200.0, 100.0, 100.0, 100.0, 0.0, 0)
+	train.initialize(100.0, 200.0, 100.0, 100.0, 10.0, 0.0, 0)
+	train.enabled = true
+
 	track = Track.new()
 	track.initialize(100.0, 100)
-	train.enabled = true
+	# Place a few initial track segments
+	_place_initial_track()
+
+	# Reference renderer nodes from scene
+	train_renderer = $TrainRenderer as CanvasItem
+	track_renderer = $TrackRenderer as CanvasItem
+	ui_renderer = $UIDisplay as CanvasLayer
+
+
+func _place_initial_track() -> void:
+	# Place a horizontal track starting from origin
+	var seg0 = track.create_straight_segment(Vector2i.ZERO, true)
+	track.try_place_segment(Vector2i.ZERO, seg0)
+	var seg1 = track.create_straight_segment(Vector2i(1, 0), true)
+	track.try_place_segment(Vector2i(1, 0), seg1)
+	var seg2 = track.create_straight_segment(Vector2i(2, 0), true)
+	track.try_place_segment(Vector2i(2, 0), seg2)
 
 
 func _input(event: InputEvent) -> void:
@@ -30,9 +53,16 @@ func _input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
-	if train == null:
+	if train == null or track == null:
 		return
+
+	# Update physics
 	train.update_input(is_throttle, is_brake)
 	train.update_speed(delta)
 	train.update_position(track, delta)
 	train.update_orientation(track)
+
+	# Update renderers
+	track_renderer.update(track)
+	train_renderer.update(train, track)
+	ui_renderer.update(train, track)
