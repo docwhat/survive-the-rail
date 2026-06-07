@@ -125,6 +125,8 @@ Each task depends on the tasks listed above it. Complete each task before moving
 
 ### Task 4 — Train Controls (Keyboard) ✅ COMPLETE
 
+**Fixes applied:** Straight/curve alignment corrected. Straights use edge-to-edge formula; curves use radius-32 arc centered on grid cell. Shared cell edges connect segments without gaps.
+
 **Description:** Train entity with throttle/brakes using keyboard input, moving along the track with physics. Train moves segment-by-segment; rotation snaps to segment orientation. Cars pivot at couplings when turning.
 
 **Includes:**
