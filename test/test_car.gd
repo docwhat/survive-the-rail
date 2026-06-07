@@ -1,15 +1,10 @@
 extends GdUnitTestSuite
 
-const _Car = preload("res://car.gd")
-const _Train = preload("res://train.gd")
-const _Track = preload("res://track.gd")
-
 # --- Helpers ---
-
 
 ## Create a dummy track with one straight horizontal segment at origin.
 func _make_dummy_track():
-	var track = _Track.new()
+	var track = Track.new()
 	track.initialize(100.0, 100)
 	var seg = track.create_straight_segment(Vector2i.ZERO, true)
 	track.try_place_segment(Vector2i.ZERO, seg)
@@ -18,14 +13,14 @@ func _make_dummy_track():
 
 ## Create a basic cargo car for testing.
 func _make_cargo(weight: float = 5.0):
-	var car = _Car.new()
+	var car = Car.new()
 	car.initialize("cargo", weight, Vector2.ZERO)
 	return car
 
 
 ## Create a cannon car for testing.
 func _make_cannon():
-	var car = _Car.new()
+	var car = Car.new()
 	car.initialize("cannon", 8.0, Vector2(0.5, 0.0))
 	return car
 
@@ -79,7 +74,7 @@ func test_get_weight_returns_car_weight() -> void:
 
 ## Adding a car with 50.0 weight gives 60.0 total (10.0 engine + 50.0 car).
 func test_heavy_car_total_weight() -> void:
-	var train = _Train.new()
+	var train = Train.new()
 	train.initialize(100.0, 200.0, 100.0, 100.0, 10.0, 0.0, 0)
 	var car = _make_cargo(50.0)
 	train.add_car(car)
@@ -88,7 +83,7 @@ func test_heavy_car_total_weight() -> void:
 
 ## Adding multiple cars: total weight is engine + all cars.
 func test_total_weight_with_multiple_cars() -> void:
-	var train = _Train.new()
+	var train = Train.new()
 	train.initialize(100.0, 200.0, 100.0, 100.0, 10.0, 0.0, 0)
 	var c1 = _make_cargo(5.0)
 	var c2 = _make_cargo(10.0)
@@ -101,7 +96,7 @@ func test_total_weight_with_multiple_cars() -> void:
 
 ## Weight-based effective acceleration is lower for heavier trains.
 func test_heavy_train_has_lower_effective_acceleration() -> void:
-	var train = _Train.new()
+	var train = Train.new()
 	train.initialize(100.0, 200.0, 100.0, 100.0, 10.0, 0.0, 0)
 	var car = _make_cargo(90.0)
 	train.add_car(car)
@@ -111,7 +106,7 @@ func test_heavy_train_has_lower_effective_acceleration() -> void:
 
 ## Weight-based effective deceleration is lower for heavier trains.
 func test_heavy_train_has_lower_effective_deceleration() -> void:
-	var train = _Train.new()
+	var train = Train.new()
 	train.initialize(100.0, 200.0, 100.0, 100.0, 10.0, 0.0, 0)
 	var car = _make_cargo(90.0)
 	train.add_car(car)

@@ -1,36 +1,31 @@
 extends GdUnitTestSuite
 
-const _Track = preload("res://track.gd")
-const _TrackSegment = preload("res://track_segment.gd")
-const _Physics = preload("res://physics.gd")
-
 # --- Helpers ---
-
 
 ## Create a straight segment with LEFT-RIGHT connections at the given position.
 func _straight_h(pos: Vector2i) -> TrackSegment:
-	var seg: TrackSegment = _TrackSegment.new()
+	var seg: TrackSegment = TrackSegment.new()
 	seg.initialize(pos, [Vector2.RIGHT, Vector2.LEFT])
 	return seg
 
 
 ## Create a straight segment with UP-DOWN connections at the given position.
 func _straight_v(pos: Vector2i) -> TrackSegment:
-	var seg: TrackSegment = _TrackSegment.new()
+	var seg: TrackSegment = TrackSegment.new()
 	seg.initialize(pos, [Vector2.DOWN, Vector2.UP])
 	return seg
 
 
 ## Create a curve segment with the given connections at the given position.
 func _curve(pos: Vector2i, conns: Array[Vector2i]) -> TrackSegment:
-	var seg: TrackSegment = _TrackSegment.new()
+	var seg: TrackSegment = TrackSegment.new()
 	seg.initialize(pos, conns)
 	return seg
 
 
 ## Create a fresh track with the given starting resources and max length.
 func _make_track(resources: float = 100.0, max_len: int = 100) -> Track:
-	var track: Track = _Track.new()
+	var track: Track = Track.new()
 	track.initialize(resources, max_len)
 	return track
 
@@ -298,7 +293,7 @@ func test_resources_deducted_on_placement() -> void:
 	var track: Track = _make_track(100.0)
 	_place_h(track, Vector2i.ZERO)
 	assert_float(track.get_resources()).is_equal_approx(
-		100.0 - _Track.COST_PER_SEGMENT,
+		100.0 - Track.COST_PER_SEGMENT,
 		0.001,
 	)
 
@@ -310,7 +305,7 @@ func test_multiple_segments_deduct_correct_cost() -> void:
 	_place_h(track, Vector2i(1, 0))
 	_place_h(track, Vector2i(2, 0))
 	assert_float(track.get_resources()).is_equal_approx(
-		100.0 - 3.0 * _Track.COST_PER_SEGMENT,
+		100.0 - 3.0 * Track.COST_PER_SEGMENT,
 		0.001,
 	)
 

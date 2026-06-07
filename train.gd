@@ -85,6 +85,7 @@ func initialize(
 	brake_force = starting_brake_force
 	health = starting_health
 	max_health = starting_health
+	total_weight = starting_weight
 	speed = initial_speed
 	segment_index = starting_segment_index
 	segment_progress = 0.0
@@ -94,7 +95,7 @@ func initialize(
 
 ## Add a car to the train.
 ## @param car: The car to attach
-func add_car(car) -> void:
+func add_car(car: Car) -> void:
 	cars.append(car)
 	# Recalculate total weight
 	total_weight = _calculate_total_weight()
@@ -102,7 +103,7 @@ func add_car(car) -> void:
 
 ## Remove a car from the train.
 ## @param car: The car to detach
-func remove_car(car) -> void:
+func remove_car(car: Car) -> void:
 	if car in cars:
 		cars.erase(car)
 		total_weight = _calculate_total_weight()
@@ -127,6 +128,88 @@ func update_speed(delta: float) -> float:
 		delta,
 	)
 	return speed
+
+
+## Advance the train along the track based on speed and delta.
+## Updates segment_progress and position, advancing segment_index
+## when progress reaches 1.0.
+## @param track: The Track data model to read segment positions from.
+## @param delta: Time step since last frame.
+func update_position(track: Track, delta: float) -> void:
+	if speed <= 0.0:
+		return
+
+	var segments: Array[TrackSegment] = track.get_segments()
+	if segments.size() == 0:
+		return
+
+	# Clamp segment_index to valid range
+	if segment_index < 0:
+		segment_index = 0
+	if segment_index >= segments.size():
+		segment_index = segments.size() - 1
+
+	var current_seg: TrackSegment = segments[segment_index]
+
+	# Distance to move this frame
+	var distance: float = speed * delta
+	segment_progress += distance / CELL_SIZE
+
+	# If progress exceeds 1.0, advance to next segment
+	while segment_progress >= 1.0 and segment_index < segments.size() - 1:
+		segment_progress -= 1.0
+		segment_index += 1
+		if segment_index < segments.size():
+			current_seg = segments[segment_index]
+			# Recalculate total weight at segment boundary
+			total_weight = _calculate_total_weight()
+
+	# Update position along current segment
+	var seg: TrackSegment = segments[segment_index]
+	position = _segment_position(seg)
+
+
+## Get the world position of the train on the current segment.
+## @param seg: The current track segment.
+## @return World-space position of the train on this segment.
+func _segment_position(seg: TrackSegment) -> Vector2:
+	var base_pos: Vector2 = seg.grid_position as Vector2 * CELL_SIZE
+	var connections: Array[Vector2i] = seg.connections
+
+	# Determine travel direction from connections
+	var travel_dir: Vector2
+	if segment_index == 0:
+		# Starting segment: travel in the exit direction
+		travel_dir = connections[0] as Vector2
+	else:
+		# Incoming direction is the previous segment's exit
+		travel_dir = -connections[1] as Vector2
+
+	travel_dir = travel_dir.normalized()
+
+	# Base position + progress along the segment
+	var offset: Vector2 = travel_dir * segment_progress * CELL_SIZE
+	return base_pos + offset
+
+
+## Update the train's rotation to match the current segment's orientation.
+## The train's rotation aligns with the segment's travel direction.
+## @param track: The Track data model to read segment orientation from.
+## @return Rotation angle in radians.
+func update_orientation(track: Track) -> float:
+	var segments: Array[TrackSegment] = track.get_segments()
+	if segments.size() == 0:
+		return 0.0
+
+	if segment_index < 0:
+		segment_index = 0
+	if segment_index >= segments.size():
+		segment_index = segments.size() - 1
+
+	var seg: TrackSegment = segments[segment_index]
+	var travel_dir: Vector2 = get_travel_direction(track)
+	# Rotate to face the travel direction
+	return atan2(travel_dir.y, travel_dir.x)
 
 
 ## Resolve a collision with another entity.
@@ -187,7 +270,7 @@ func update_input(is_throttle_pressed: bool, is_brake_pressed: bool) -> void:
 ## @return Sum of all car weights (minimum engine weight).
 func _calculate_total_weight() -> float:
 	var weight: float = 10.0 # Engine base weight
-	for car in cars:
+	for car: Car in cars:
 		if car.has_method("get_weight"):
 			weight += car.get_weight()
 	return weight

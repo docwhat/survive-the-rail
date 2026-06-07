@@ -1,10 +1,6 @@
 extends GdUnitTestSuite
 
-const _Car = preload("res://car.gd")
-const _Train = preload("res://train.gd")
-
 # --- Helpers ---
-
 
 ## Create a Train with default parameters for testing.
 func _make_train(
@@ -15,8 +11,16 @@ func _make_train(
 		initial_speed: float = 0.0,
 		initial_segment_index: int = 0,
 ):
-	var train = _Train.new()
-	train.initialize(max_speed, engine_power, brake_force, max_health, 10.0, initial_speed, initial_segment_index)
+	var train = Train.new()
+	train.initialize(
+		max_speed,
+		engine_power,
+		brake_force,
+		max_health,
+		10.0,
+		initial_speed,
+		initial_segment_index,
+	)
 	return train
 
 
@@ -27,18 +31,30 @@ func _make_train_with_car(
 		car_bogie_offset: Vector2 = Vector2(0.5, 0.0),
 ):
 	var train = _make_train()
-	var car = _Car.new()
+	var car = Car.new()
 	car.initialize(car_type, car_weight, car_bogie_offset)
 	train.add_car(car)
 	return { "a": train, "b": car }
 
 
 ## Create a dummy Track with one straight horizontal segment at origin.
+## For multi-segment tests, use _make_multi_segment_track().
 func _make_dummy_track():
 	var track = Track.new()
 	track.initialize(100.0, 100)
 	var seg = track.create_straight_segment(Vector2i.ZERO, true)
 	track.try_place_segment(Vector2i.ZERO, seg)
+	return track
+
+
+## Create a Track with two consecutive straight horizontal segments.
+func _make_multi_segment_track():
+	var track = Track.new()
+	track.initialize(100.0, 100)
+	var seg0 = track.create_straight_segment(Vector2i.ZERO, true)
+	track.try_place_segment(Vector2i.ZERO, seg0)
+	var seg1 = track.create_straight_segment(Vector2i(1, 0), true)
+	track.try_place_segment(Vector2i(1, 0), seg1)
 	return track
 
 # ============================================================================
@@ -104,7 +120,7 @@ func test_train_starts_disabled():
 ## Adding a car increases total_weight by the car's weight.
 func test_adding_car_increases_total_weight():
 	var train = _make_train()
-	var car = _Car.new()
+	var car = Car.new()
 	car.initialize("cargo", 5.0, Vector2.ZERO)
 	train.add_car(car)
 	assert_float(train.total_weight).is_equal_approx(15.0, 0.001)
@@ -113,7 +129,7 @@ func test_adding_car_increases_total_weight():
 ## Adding a car increments car count.
 func test_adding_car_increases_count():
 	var train = _make_train()
-	var car = _Car.new()
+	var car = Car.new()
 	car.initialize("cannon", 8.0, Vector2.ZERO)
 	train.add_car(car)
 	assert_int(train.get_car_count()).is_equal(1)
@@ -122,9 +138,9 @@ func test_adding_car_increases_count():
 ## Adding two cars: total_weight is engine + both cars.
 func test_adding_two_cars():
 	var train = _make_train()
-	var car1 = _Car.new()
+	var car1 = Car.new()
 	car1.initialize("cargo", 5.0, Vector2.ZERO)
-	var car2 = _Car.new()
+	var car2 = Car.new()
 	car2.initialize("cargo", 10.0, Vector2.ZERO)
 	train.add_car(car1)
 	train.add_car(car2)
@@ -146,7 +162,7 @@ func test_removing_car_decreases_total_weight():
 ## Removing a car that isn't attached is a no-op.
 func test_removing_nonexistent_car_is_noop():
 	var train = _make_train()
-	var car = _Car.new()
+	var car = Car.new()
 	car.initialize("cargo", 5.0, Vector2.ZERO)
 	train.remove_car(car)
 	assert_int(train.get_car_count()).is_equal(0)
@@ -156,7 +172,7 @@ func test_removing_nonexistent_car_is_noop():
 ## Adding a car updates total_weight via _calculate_total_weight.
 func test_add_car_updates_total_weight():
 	var train = _make_train()
-	var heavy_car = _Car.new()
+	var heavy_car = Car.new()
 	heavy_car.initialize("cargo", 50.0, Vector2.ZERO)
 	train.add_car(heavy_car)
 	assert_float(train.total_weight).is_equal_approx(60.0, 0.001)
@@ -257,7 +273,7 @@ func test_five_cars_significantly_slows_acceleration():
 	var full_train = _make_train()
 	full_train.enabled = true
 	for i in range(5):
-		var car = _Car.new()
+		var car = Car.new()
 		car.initialize("cargo", 10.0, Vector2.ZERO)
 		full_train.add_car(car)
 	full_train.update_input(true, false)
@@ -439,7 +455,7 @@ func test_get_effective_acceleration():
 func test_effective_acceleration_decreases_with_cars():
 	var train = _make_train()
 	var initial: float = train.get_effective_acceleration()
-	var car = _Car.new()
+	var car = Car.new()
 	car.initialize("cargo", 40.0, Vector2.ZERO)
 	train.add_car(car)
 	assert_bool(train.get_effective_acceleration() < initial).is_true()
@@ -478,7 +494,7 @@ func test_get_momentum():
 func test_get_car_count():
 	var train = _make_train()
 	assert_int(train.get_car_count()).is_equal(0)
-	var car = _Car.new()
+	var car = Car.new()
 	car.initialize("cargo", 5.0, Vector2.ZERO)
 	train.add_car(car)
 	assert_int(train.get_car_count()).is_equal(1)
@@ -506,3 +522,70 @@ func test_get_state_captures_speed():
 	train.speed = 42.0
 	var state: Dictionary = train.get_state()
 	assert_float(state["speed"]).is_equal_approx(42.0, 0.001)
+
+# ============================================================================
+# Segment Movement
+# ============================================================================
+
+
+## update_position moves the train along the track.
+func test_update_position_advances_along_track() -> void:
+	var train = _make_train()
+	train.enabled = true
+	train.initialize(100.0, 200.0, 100.0, 100.0, 10.0, 0.0, 0)
+	var track = _make_dummy_track()
+	train.speed = 64.0 # 1 cell per second
+	train.update_position(track, 1.0)
+	assert_float(train.segment_progress).is_equal_approx(1.0, 0.001)
+
+
+## update_position advances segment_index when progress reaches 1.0.
+func test_update_position_advances_segment_index() -> void:
+	var train = _make_train()
+	train.enabled = true
+	train.initialize(100.0, 200.0, 100.0, 100.0, 10.0, 0.0, 0)
+	var track = _make_multi_segment_track()
+	train.speed = 64.0
+	train.segment_progress = 0.5
+	train.update_position(track, 1.0)
+	assert_int(train.segment_index).is_equal(1)
+	assert_float(train.segment_progress).is_equal_approx(0.5, 0.001)
+
+
+## update_position with zero speed does not move.
+func test_update_position_zero_speed_no_movement() -> void:
+	var train = _make_train()
+	var track = _make_dummy_track()
+	train.speed = 0.0
+	train.update_position(track, 1.0)
+	assert_float(train.segment_progress).is_equal_approx(0.0, 0.001)
+	assert_int(train.segment_index).is_equal(0)
+
+
+## update_position on empty track does nothing.
+func test_update_position_empty_track_no_movement() -> void:
+	var train = _make_train()
+	train.enabled = true
+	train.initialize(100.0, 200.0, 100.0, 100.0, 10.0, 0.0, 0)
+	var track = Track.new()
+	track.initialize(100.0, 100)
+	train.speed = 64.0
+	train.update_position(track, 1.0)
+	assert_int(train.segment_index).is_equal(0)
+
+
+## update_orientation returns a valid rotation angle.
+func test_update_orientation_returns_valid_angle() -> void:
+	var train = _make_train()
+	var track = _make_dummy_track()
+	var angle: float = train.update_orientation(track)
+	assert_bool(angle >= -PI).is_true()
+	assert_bool(angle <= PI).is_true()
+
+
+## update_orientation on straight horizontal segment returns 0.
+func test_update_orientation_straight_horizontal_is_zero() -> void:
+	var train = _make_train()
+	var track = _make_dummy_track()
+	var angle: float = train.update_orientation(track)
+	assert_float(angle).is_equal_approx(0.0, 0.001)
