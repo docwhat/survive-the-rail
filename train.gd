@@ -176,24 +176,59 @@ func _segment_position(seg: TrackSegment) -> Vector2:
 	var base_pos: Vector2 = seg.grid_position as Vector2 * CELL_SIZE
 	var connections: Array[Vector2i] = seg.connections
 
-	# Determine travel direction from connections
-	var travel_dir: Vector2
-	if segment_index == 0:
-		# Starting segment: travel in the exit direction
-		travel_dir = connections[0] as Vector2
-	else:
-		# Incoming direction is the previous segment's exit
-		travel_dir = -connections[1] as Vector2
+	# Determine if this is a straight or curve segment
+	var seg_type: int = seg.get_segment_type()
+	if seg_type == 0:
+		# Straight: linear interpolation
+		var travel_dir: Vector2
+		if segment_index == 0:
+			travel_dir = connections[0] as Vector2
+		else:
+			travel_dir = -connections[1] as Vector2
+		travel_dir = travel_dir.normalized()
+		return base_pos + travel_dir * segment_progress * CELL_SIZE
+	# Curve: interpolate along the arc
+	return _curve_position(base_pos, connections, segment_progress)
 
-	travel_dir = travel_dir.normalized()
 
-	# Base position + progress along the segment
-	var offset: Vector2 = travel_dir * segment_progress * CELL_SIZE
-	return base_pos + offset
+## Calculate position along a curve segment arc.
+## The curve is modeled as a quarter-circle arc centered on the segment's
+## grid cell. Progress 0.0 = entry point, 1.0 = exit point.
+## @param center: The grid center position of the curve segment.
+## @param connections: Two adjacent direction vectors defining the curve.
+## @param progress: Progress along the curve (0.0 to 1.0).
+## @return World-space position on the curve arc.
+func _curve_position(center: Vector2, connections: Array[Vector2i], progress: float) -> Vector2:
+	var entry_dir: Vector2 = connections[0] as Vector2
+	var exit_dir: Vector2 = connections[1] as Vector2
+
+	# The arc is centered at the curve segment's grid position.
+	# At progress 0.0, position is at the entry point on the arc.
+	# At progress 1.0, position is at the exit point on the arc.
+	# The arc radius equals the cell size (the train travels along the
+	# perimeter of the curve's cell, not the center).
+	var radius: float = CELL_SIZE
+	var entry_angle: float = atan2(entry_dir.y, entry_dir.x)
+	var exit_angle: float = atan2(exit_dir.y, exit_dir.x)
+
+	# Determine the short arc direction between the two directions
+	var diff: float = exit_angle - entry_angle
+	if diff > PI:
+		diff -= 2.0 * PI
+	elif diff < -PI:
+		diff += 2.0 * PI
+
+	var curve_angle: float = entry_angle + diff * progress
+
+	return Vector2(
+		center.x + cos(curve_angle) * radius,
+		center.y + sin(curve_angle) * radius,
+	)
 
 
 ## Update the train's rotation to match the current segment's orientation.
 ## The train's rotation aligns with the segment's travel direction.
+## For curves, interpolates between entry and exit angles.
 ## @param track: The Track data model to read segment orientation from.
 ## @return Rotation angle in radians.
 func update_orientation(track: Track) -> float:
@@ -207,9 +242,22 @@ func update_orientation(track: Track) -> float:
 		segment_index = segments.size() - 1
 
 	var seg: TrackSegment = segments[segment_index]
-	var travel_dir: Vector2 = get_travel_direction(track)
-	# Rotate to face the travel direction
-	return atan2(travel_dir.y, travel_dir.x)
+	var seg_type: int = seg.get_segment_type()
+	if seg_type == 0:
+		# Straight segment: face the exit direction
+		var travel_dir: Vector2 = get_travel_direction(track)
+		return atan2(travel_dir.y, travel_dir.x)
+	# Curve: interpolate rotation along the arc
+	var entry_dir: Vector2 = seg.connections[0] as Vector2
+	var exit_dir: Vector2 = seg.connections[1] as Vector2
+	var entry_angle: float = atan2(entry_dir.y, entry_dir.x)
+	var exit_angle: float = atan2(exit_dir.y, exit_dir.x)
+	var diff: float = exit_angle - entry_angle
+	if diff > PI:
+		diff -= 2.0 * PI
+	elif diff < -PI:
+		diff += 2.0 * PI
+	return entry_angle + diff * segment_progress
 
 
 ## Resolve a collision with another entity.
@@ -319,8 +367,11 @@ func get_travel_direction(track: Track) -> Vector2:
 	if segment_index >= segments.size():
 		segment_index = segments.size() - 1
 	var seg: TrackSegment = segments[segment_index]
-	# The exit direction tells us where the train is heading
-	return seg.connections[0] # First connection is the exit direction
+	# For curves, the exit direction is the second connection.
+	# For straights, the first connection is the exit direction.
+	if seg.get_segment_type() == 1:
+		return seg.connections[1] # Exit direction of curve
+	return seg.connections[0] # Exit direction of straight
 
 
 ## Get a simplified state dictionary for serialization.

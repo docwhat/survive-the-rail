@@ -85,29 +85,33 @@ func _draw_straight_segment(center: Vector2, seg: TrackSegment) -> void:
 		draw_rect(rect, SEGMENT_OUTLINE, true)
 
 
-## Draw a curve segment as an arc.
+## Draw a curve segment as a filled quarter-circle arc.
 func _draw_curve_segment(center: Vector2, seg: TrackSegment) -> void:
-	var half_size: float = Track.CELL_SIZE * 0.45
 	var conn: Array[Vector2i] = seg.connections
-
 	var start_dir: Vector2 = conn[0] as Vector2
 	var end_dir: Vector2 = conn[1] as Vector2
+	var radius: float = Track.CELL_SIZE
 
-	# Draw connecting line from center to each endpoint
-	draw_line(center, center + start_dir * half_size * 0.8, SEGMENT_OUTLINE, 2.0)
-	draw_line(center, center + end_dir * half_size * 0.8, SEGMENT_OUTLINE, 2.0)
+	# Generate arc points on the perimeter
+	var arc_points: PackedVector2Array = _draw_arc(center, start_dir, end_dir, radius)
 
-	# Draw the arc connecting the two arms
-	var arc_points: PackedVector2Array = _draw_arc(center, start_dir, end_dir, half_size * 0.8)
-	draw_polyline(arc_points, SEGMENT_OUTLINE, 2.0)
-
-	# Fill the curve area
+	# Build fill polygon: connect entry point, arc points, exit point,
+	# then close back to entry via a straight line along the curve's radius.
+	var entry_point: Vector2 = center + start_dir * radius
 	var filled_points: PackedVector2Array = PackedVector2Array()
-	filled_points.append(center)
+	filled_points.append(entry_point)
 	for p in arc_points:
 		filled_points.append(p)
-	filled_points.append(center)
+	filled_points.append(center + end_dir * radius)
+	filled_points.append(entry_point)
 	draw_colored_polygon(filled_points, SEGMENT_COLOR)
+
+	# Draw the arc outline
+	draw_polyline(arc_points, SEGMENT_OUTLINE, 2.0)
+
+	# Draw subtle connecting lines to center (shows the radius)
+	draw_line(center, entry_point, SEGMENT_OUTLINE, 1.0)
+	draw_line(center, center + end_dir * radius, SEGMENT_OUTLINE, 1.0)
 
 
 ## Generate arc points between two directions at a center point.
@@ -130,7 +134,9 @@ func _draw_arc(
 	elif diff < -PI:
 		diff += 2.0 * PI
 
-	for i in range(steps + 1):
+	# Generate intermediate points (exclude endpoints to avoid duplication
+	# in the filled polygon)
+	for i in range(1, steps):
 		var t: float = i / steps
 		var angle: float = start_angle + diff * t
 		var px: float = center.x + cos(angle) * radius
