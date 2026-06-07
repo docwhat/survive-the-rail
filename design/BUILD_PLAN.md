@@ -164,6 +164,111 @@ Each task depends on the tasks listed above it. Complete each task before moving
 
 ---
 
+## Curve & Straight Alignment — Coordinate Model
+
+A common failure mode when building a track-based train sim is getting the
+transition between straight and curve segments wrong, causing the train to
+leap off-track and cars to orbit erratically. The root cause is almost always
+a mismatch between the coordinate systems used for different segment types.
+
+### The coordinate model
+
+The track uses a cell-based coordinate system:
+- `CELL_SIZE = 64` pixels defines the grid cell width and height.
+- Each segment's grid position `grid_position` (Vector2i) maps to world center
+  `grid_position * CELL_SIZE`.
+- Cell `(0,0)` center is at `(0, 0)`.
+- Cell `(3,0)` center is at `(192, 0)`.
+- A cell spans `[center_x - 32, center_x + 32]` horizontally and
+  `[center_y - 32, center_y + 32]` vertically.
+- Adjacent cells share boundaries: cell `(2,0)` right edge is at `x = 160`,
+  which IS cell `(3,0)` left edge.
+
+### Straight segments
+
+A straight spans **edge-to-edge** within its cell — exactly `CELL_SIZE` pixels.
+
+Position formula:
+```
+  center - exit_dir * 32 + exit_dir * progress * CELL_SIZE
+```
+
+- At `progress = 0`: `center - exit_dir * 32` → **entry edge** (where previous segment connects)
+- At `progress = 1`: `center + exit_dir * 32` → **exit edge** (where next segment connects)
+- Total travel distance: `CELL_SIZE = 64` pixels
+
+Example: straight at grid `(2,0)` with exit direction RIGHT:
+- Center: `(128, 0)`, exit_dir: `(1, 0)`
+- Entry edge: `(128, 0) - (1, 0) * 32 = (96, 0)`
+- Exit edge: `(128, 0) + (1, 0) * 32 = (160, 0)`
+
+### Curve segments
+
+A curve spans a **90° arc** within its cell, radius `CELL_SIZE / 2 = 32`,
+centered on the curve cell's grid center.
+
+- Arc center = curve cell grid center (`grid_position * CELL_SIZE`)
+- Arc radius = `32`
+- Entry angle = `atan2(connections[0].y, connections[0].x)`
+- Exit angle = `atan2(connections[1].y, connections[1].x)`
+- Arc spans from entry edge to exit edge (always ±90°)
+
+Position formula:
+```
+  arc_center + Vector2(cos(entry_angle + diff * progress),
+                       sin(entry_angle + diff * progress)) * 32
+```
+
+Example: curve at grid `(3,0)` with connections `[LEFT, DOWN]`:
+- Arc center: `(192, 0)`, radius: `32`
+- Entry angle: `atan2(0, -1) = π`
+- Exit angle: `atan2(1, 0) = π/2`
+- diff = `-π/2` (90° clockwise)
+- Entry point at progress 0: `(192 + cos(π)*32, 0 + sin(π)*32) = (160, 0)` ← matches straight(2,0) exit ✓
+- Exit point at progress 1: `(192 + cos(π/2)*32, 0 + sin(π/2)*32) = (192, 32)` ← matches straight(3,1) entry ✓
+
+### Orientation on curves
+
+The train's rotation interpolates along the arc:
+```
+  entry_angle + diff * segment_progress
+```
+
+This gives smooth heading changes through the curve.
+
+### Travel direction on curves
+
+The tangent direction at any point on the arc:
+```
+  Vector2(cos(angle), sin(angle))
+  where angle = entry_angle + diff * segment_progress
+```
+
+### Why this works
+
+The key: **straights and curves share cell edges as connection points.**
+
+- Straight exit edge at `(160, 0)` = Curve entry point at `(160, 0)` ✓
+- Curve exit point at `(192, 32)` = Straight entry edge at `(192, 32)` ✓
+
+No gaps, no leaps. Every segment type uses `CELL_SIZE = 64` as the travel
+distance within a cell. Straights travel linearly edge-to-edge; curves travel
+along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
+
+### Common pitfalls to avoid
+
+1. **Using `CELL_SIZE` as the arc radius** — should be `CELL_SIZE / 2 = 32`.
+2. **Starting straight position at the cell center** — should start at the
+   entry edge (`center - exit_dir * 32`).
+3. **Offset-arc center tricks** — unnecessary complication. The arc is centered
+   on the curve cell's grid center; the radius and angles handle everything.
+4. **Treating `connections[0]` as the previous segment's direction** — it's the
+   direction *from the curve cell center to the entry edge*, which is the
+   direction the train enters the curve (the exit direction of the previous
+   straight).
+
+---
+
 ### Task 5 — Train Controls (G.U.I.D.E + Controllers)
 
 **Description:** Extend train input to support controllers via G.U.I.D.E.
