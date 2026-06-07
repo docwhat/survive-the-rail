@@ -112,31 +112,33 @@ func _draw_straight_segment(pos: Vector2, seg: TrackSegment) -> void:
 
 
 ## Draw a curve segment as a filled quarter-circle arc.
+# The arc center is offset from the grid center so the arc connects
+# smoothly with adjacent straight segments.
 func _draw_curve_segment(pos: Vector2, seg: TrackSegment) -> void:
 	var conn: Array[Vector2i] = seg.connections
 	var start_dir: Vector2 = conn[0] as Vector2
 	var end_dir: Vector2 = conn[1] as Vector2
 	var radius: float = Track.CELL_SIZE
 
-	# Generate arc points on the perimeter
-	var arc_points: PackedVector2Array = _draw_arc(pos, start_dir, end_dir, radius)
+	# Arc geometry matching train.gd
+	var arc_entry: Vector2 = pos + start_dir * radius
+	var arc_exit: Vector2 = pos + end_dir * radius
+	var arc_center: Vector2 = Vector2(arc_entry.x, arc_exit.y)
 
-	# Build fill polygon: entry, arc points, exit, close
-	var entry_point: Vector2 = pos + start_dir * radius
+	# Draw fill polygon
 	var filled_points: PackedVector2Array = PackedVector2Array()
-	filled_points.append(entry_point)
-	for p in arc_points:
-		filled_points.append(p)
-	filled_points.append(pos + end_dir * radius)
-	filled_points.append(entry_point)
+	filled_points.append(arc_entry)
+	filled_points.append(arc_exit)
+	filled_points.append(arc_entry)
 	draw_colored_polygon(filled_points, SEGMENT_COLOR)
 
-	# Draw the arc outline
+	# Draw the arc outline using the same arc function
+	var arc_points: PackedVector2Array = _draw_arc(arc_center, start_dir, end_dir, radius)
 	draw_polyline(arc_points, SEGMENT_OUTLINE, 2.0)
 
-	# Draw subtle connecting lines to center (shows the radius)
-	draw_line(pos, entry_point, SEGMENT_OUTLINE, 1.0)
-	draw_line(pos, pos + end_dir * radius, SEGMENT_OUTLINE, 1.0)
+	# Draw subtle connecting lines to arc center (shows the radius)
+	draw_line(arc_center, arc_entry, SEGMENT_OUTLINE, 1.0)
+	draw_line(arc_center, arc_exit, SEGMENT_OUTLINE, 1.0)
 
 
 ## Generate arc points between two directions at a center point.

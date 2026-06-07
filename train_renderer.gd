@@ -129,33 +129,27 @@ func _car_position_on_curve(
 	elif diff < -PI:
 		diff += 2.0 * PI
 
-	# The arc radius equals CELL_SIZE (distance from curve center to perimeter).
-	# The engine is on the outer arc at progress ~0.x.
-	# Cars trail behind on progressively larger arcs.
+	# Arc geometry must match _curve_position in train.gd.
 	var arc_radius: float = Track.CELL_SIZE
+	var curve_center: Vector2 = seg.grid_position as Vector2 * Track.CELL_SIZE
+	var arc_entry: Vector2 = curve_center + entry_dir * arc_radius
+	var arc_exit: Vector2 = curve_center + exit_dir * arc_radius
+	var arc_center: Vector2 = Vector2(arc_entry.x, arc_exit.y)
 
 	# Engine angle on the arc
 	var engine_angle: float = entry_angle + diff * train.segment_progress
 
-	# Each car trails behind the engine by a portion of the arc.
-	# Arc length = CELL_SIZE * |diff| = CELL_SIZE * PI/2.
-	# Car spacing along the arc.
+	# Arc length = radius * |diff| = CELL_SIZE * PI/2.
+	# Cars trail behind by CAR_SPACING along the arc.
 	var arc_length: float = arc_radius * abs(diff)
 	var car_arc_offset: float = (car_index + 1) * CAR_SPACING
 
-	# The train enters the curve from the previous straight.
-	# At curve entry (progress 0), the engine is at the end of the arc entry point.
-	# Cars trail behind: if the engine is deep in the curve, cars may be
-	# on the previous straight segment.
+	# Car's angle on the arc (behind the engine)
 	var new_angle: float = engine_angle + car_arc_offset / arc_length * diff
 
-	# Center of the curve segment (world space)
-	var center: Vector2 = seg.grid_position as Vector2 * Track.CELL_SIZE
-
-	# Car position on the arc
 	return Vector2(
-		center.x + cos(new_angle) * arc_radius,
-		center.y + sin(new_angle) * arc_radius,
+		arc_center.x + cos(new_angle) * arc_radius,
+		arc_center.y + sin(new_angle) * arc_radius,
 	)
 
 
@@ -171,15 +165,25 @@ func _car_rotation_on_curve(car_index: int, engine_rotation: float) -> float:
 
 	var entry_dir: Vector2 = seg.connections[0] as Vector2
 	var exit_dir: Vector2 = seg.connections[1] as Vector2
-	var entry_angle: float = atan2(entry_dir.y, entry_dir.x)
-	var exit_angle: float = atan2(exit_dir.y, exit_dir.x)
+	var arc_radius: float = Track.CELL_SIZE
+	var curve_center: Vector2 = seg.grid_position as Vector2 * Track.CELL_SIZE
+	var arc_entry: Vector2 = curve_center + entry_dir * arc_radius
+	var arc_exit: Vector2 = curve_center + exit_dir * arc_radius
+	var arc_ctr: Vector2 = Vector2(arc_entry.x, arc_exit.y)
+	var entry_angle: float = atan2(
+		arc_entry.y - arc_ctr.y,
+		arc_entry.x - arc_ctr.x,
+	)
+	var exit_angle: float = atan2(
+		arc_exit.y - arc_ctr.y,
+		arc_exit.x - arc_ctr.x,
+	)
 	var diff: float = exit_angle - entry_angle
 	if diff > PI:
 		diff -= 2.0 * PI
 	elif diff < -PI:
 		diff += 2.0 * PI
 
-	var arc_radius: float = Track.CELL_SIZE
 	var arc_length: float = arc_radius * abs(diff)
 	var car_arc_offset: float = (car_index + 1) * CAR_SPACING
 

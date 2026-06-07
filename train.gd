@@ -192,8 +192,9 @@ func _segment_position(seg: TrackSegment) -> Vector2:
 
 
 ## Calculate position along a curve segment arc.
-## The curve is modeled as a quarter-circle arc centered on the segment's
-## grid cell. Progress 0.0 = entry point, 1.0 = exit point.
+## The curve is modeled as a quarter-circle arc. The arc center is
+## positioned so that progress 0.0 connects to the previous segment
+## and progress 1.0 connects to the next segment.
 ## @param center: The grid center position of the curve segment.
 ## @param connections: Two adjacent direction vectors defining the curve.
 ## @param progress: Progress along the curve (0.0 to 1.0).
@@ -202,14 +203,34 @@ func _curve_position(center: Vector2, connections: Array[Vector2i], progress: fl
 	var entry_dir: Vector2 = connections[0] as Vector2
 	var exit_dir: Vector2 = connections[1] as Vector2
 
-	# The arc is centered at the curve segment's grid position.
-	# At progress 0.0, position is at the entry point on the arc.
-	# At progress 1.0, position is at the exit point on the arc.
-	# The arc radius equals the cell size (the train travels along the
-	# perimeter of the curve's cell, not the center).
+	# The arc radius equals CELL_SIZE. The arc center is offset from
+	# the grid center so that the entry point connects to the
+	# previous straight segment and the exit point connects to the
+	# next straight segment.
 	var radius: float = CELL_SIZE
-	var entry_angle: float = atan2(entry_dir.y, entry_dir.x)
-	var exit_angle: float = atan2(exit_dir.y, exit_dir.x)
+
+	# Entry point on the arc (where the previous segment connects):
+	# This is one cell away from the curve center in the entry direction.
+	var arc_entry: Vector2 = center + entry_dir * radius
+	# Exit point on the arc (where the next segment connects):
+	var arc_exit: Vector2 = center + exit_dir * radius
+
+	# The center of the arc (the pivot point for the quarter-circle):
+	# For a LEFT->DOWN curve, entry = LEFT, exit = DOWN.
+	# arc_entry = center + LEFT * R = (center.x - R, center.y)
+	# arc_exit = center + DOWN * R = (center.x, center.y + R)
+	# The arc center is at (arc_entry.x, arc_exit.y) = (center.x - R, center.y + R)
+	var arc_center: Vector2 = Vector2(arc_entry.x, arc_exit.y)
+
+	# Entry and exit angles relative to arc center.
+	var entry_angle: float = atan2(
+		arc_entry.y - arc_center.y,
+		arc_entry.x - arc_center.x,
+	)
+	var exit_angle: float = atan2(
+		arc_exit.y - arc_center.y,
+		arc_exit.x - arc_center.x,
+	)
 
 	# Determine the short arc direction between the two directions
 	var diff: float = exit_angle - entry_angle
@@ -221,8 +242,8 @@ func _curve_position(center: Vector2, connections: Array[Vector2i], progress: fl
 	var curve_angle: float = entry_angle + diff * progress
 
 	return Vector2(
-		center.x + cos(curve_angle) * radius,
-		center.y + sin(curve_angle) * radius,
+		arc_center.x + cos(curve_angle) * radius,
+		arc_center.y + sin(curve_angle) * radius,
 	)
 
 
@@ -250,8 +271,20 @@ func update_orientation(track: Track) -> float:
 	# Curve: interpolate rotation along the arc
 	var entry_dir: Vector2 = seg.connections[0] as Vector2
 	var exit_dir: Vector2 = seg.connections[1] as Vector2
-	var entry_angle: float = atan2(entry_dir.y, entry_dir.x)
-	var exit_angle: float = atan2(exit_dir.y, exit_dir.x)
+	var radius: float = CELL_SIZE
+
+	# Arc geometry (same as _curve_position)
+	var arc_entry: Vector2 = seg.grid_position as Vector2 * CELL_SIZE + entry_dir * radius
+	var arc_exit: Vector2 = seg.grid_position as Vector2 * CELL_SIZE + exit_dir * radius
+	var arc_center: Vector2 = Vector2(arc_entry.x, arc_exit.y)
+	var entry_angle: float = atan2(
+		arc_entry.y - arc_center.y,
+		arc_entry.x - arc_center.x,
+	)
+	var exit_angle: float = atan2(
+		arc_exit.y - arc_center.y,
+		arc_exit.x - arc_center.x,
+	)
 	var diff: float = exit_angle - entry_angle
 	if diff > PI:
 		diff -= 2.0 * PI
@@ -369,8 +402,30 @@ func get_travel_direction(track: Track) -> Vector2:
 	var seg: TrackSegment = segments[segment_index]
 	# For curves, the exit direction is the second connection.
 	# For straights, the first connection is the exit direction.
+	# On a curve, return the tangent direction at current progress.
+	# This gives the instantaneous travel direction along the arc.
 	if seg.get_segment_type() == 1:
-		return seg.connections[1] # Exit direction of curve
+		var entry_dir: Vector2 = seg.connections[0] as Vector2
+		var exit_dir: Vector2 = seg.connections[1] as Vector2
+		var radius: float = CELL_SIZE
+		var arc_entry: Vector2 = seg.grid_position as Vector2 * CELL_SIZE + entry_dir * radius
+		var arc_exit: Vector2 = seg.grid_position as Vector2 * CELL_SIZE + exit_dir * radius
+		var arc_center: Vector2 = Vector2(arc_entry.x, arc_exit.y)
+		var entry_angle: float = atan2(
+			arc_entry.y - arc_center.y,
+			arc_entry.x - arc_center.x,
+		)
+		var exit_angle: float = atan2(
+			arc_exit.y - arc_center.y,
+			arc_exit.x - arc_center.x,
+		)
+		var diff: float = exit_angle - entry_angle
+		if diff > PI:
+			diff -= 2.0 * PI
+		elif diff < -PI:
+			diff += 2.0 * PI
+		var tangent_angle: float = entry_angle + diff * segment_progress
+		return Vector2(cos(tangent_angle), sin(tangent_angle))
 	return seg.connections[0] # Exit direction of straight
 
 
