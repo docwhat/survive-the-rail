@@ -87,7 +87,11 @@ func _process(delta: float) -> void:
 	train.update_position(track, delta)
 	train.update_orientation(track)
 
+	# Camera offset: center on train
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var cam_offset: Vector2 = train.position - viewport_size / 2.0
+
 	# Update renderers
-	track_renderer.update(track)
-	train_renderer.update(train, track)
+	track_renderer.update(track, cam_offset)
+	train_renderer.update(train, track, cam_offset)
 	ui_renderer.update(train, track)
