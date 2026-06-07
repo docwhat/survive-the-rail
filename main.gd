@@ -20,6 +20,16 @@ func _ready() -> void:
 	train = Train.new()
 	train.initialize(100.0, 200.0, 100.0, 100.0, 10.0, 0.0, 0)
 	train.enabled = true
+	# Add some cars for visual interest and pivot demonstration
+	var car1 = Car.new()
+	car1.initialize("utility", 5.0, Vector2.ZERO)
+	train.add_car(car1)
+	var car2 = Car.new()
+	car2.initialize("weapon", 5.0, Vector2.ZERO)
+	train.add_car(car2)
+	var car3 = Car.new()
+	car3.initialize("cargo", 5.0, Vector2.ZERO)
+	train.add_car(car3)
 
 	track = Track.new()
 	track.initialize(100.0, 100)
@@ -33,13 +43,28 @@ func _ready() -> void:
 
 
 func _place_initial_track() -> void:
-	# Place a horizontal track starting from origin
+	# Place a track with straights and a curve:
+	# Row 0: straight segments (0,0) → (1,0) → (2,0)
+	# Curve at (3,0): turns DOWN from RIGHT
+	# Vertical down: (3,1), (3,2)
+
+	# Horizontal straights
 	var seg0 = track.create_straight_segment(Vector2i.ZERO, true)
 	track.try_place_segment(Vector2i.ZERO, seg0)
 	var seg1 = track.create_straight_segment(Vector2i(1, 0), true)
 	track.try_place_segment(Vector2i(1, 0), seg1)
 	var seg2 = track.create_straight_segment(Vector2i(2, 0), true)
 	track.try_place_segment(Vector2i(2, 0), seg2)
+
+	# Curve segment: connects LEFT (incoming) → DOWN (outgoing)
+	var seg3 = track.create_curve_segment(Vector2i(3, 0), [Vector2i.LEFT, Vector2i.DOWN])
+	track.try_place_segment(Vector2i(3, 0), seg3)
+
+	# Vertical straights after the curve
+	var seg4 = track.create_straight_segment(Vector2i(3, 1), true)
+	track.try_place_segment(Vector2i(3, 1), seg4)
+	var seg5 = track.create_straight_segment(Vector2i(3, 2), true)
+	track.try_place_segment(Vector2i(3, 2), seg5)
 
 
 func _input(event: InputEvent) -> void:
