@@ -47,5 +47,10 @@ run = "godot --headless --export-debug \"Linux/X11\" build/linux/survive-the-rai
 description = "Export the Web version to build/web/"
 run = "godot --headless --export-debug \"Web\" build/web/index.html"
 
+[tasks.oxipng]
+description = "Optimize PNG images"
+run = "git ls-files --no-ignored -z '*.png' ':!:addons/' | xargs -0 oxipng --opt max --strip safe"
+
 [tools]
+oxipng = "9.1.5"
 trunk = "latest"
