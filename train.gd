@@ -166,29 +166,24 @@ func update_position(track: Track, delta: float) -> void:
 
 	# Update position along current segment
 	var seg: TrackSegment = segments[segment_index]
-	position = _segment_position(seg)
+	position = _segment_position(track, seg)
 
 
 ## Get the world position of the train on the current segment.
+## @param track: The track data model for lookups.
 ## @param seg: The current track segment.
 ## @return World-space position of the train on this segment.
-func _segment_position(seg: TrackSegment) -> Vector2:
+func _segment_position(track: Track, seg: TrackSegment) -> Vector2:
 	var center: Vector2 = seg.grid_position as Vector2 * CELL_SIZE
-	var connections: Array[Vector2i] = seg.connections
 
 	# Determine if this is a straight or curve segment
 	var seg_type: int = seg.get_segment_type()
 	if seg_type == 0:
 		# Straight: edge-to-edge interpolation
-		var travel_dir: Vector2
-		if segment_index == 0:
-			travel_dir = connections[0] as Vector2
-		else:
-			travel_dir = -connections[1] as Vector2
-		travel_dir = travel_dir.normalized()
+		var travel_dir: Vector2 = _get_travel_direction_for_segment(track, seg)
 		return center - travel_dir * 32.0 + travel_dir * segment_progress * CELL_SIZE
 	# Curve: interpolate along the arc
-	return _curve_position(center, connections, segment_progress)
+	return _curve_position(center, seg.connections, segment_progress)
 
 
 ## Calculate position along a curve segment arc.
@@ -200,13 +195,15 @@ func _segment_position(seg: TrackSegment) -> Vector2:
 ## @param progress: Progress along the curve (0.0 to 1.0).
 ## @return World-space position on the curve arc.
 func _curve_position(center: Vector2, connections: Array[Vector2i], progress: float) -> Vector2:
-	var entry_dir: Vector2 = connections[0] as Vector2
-	var exit_dir: Vector2 = connections[1] as Vector2
+	# Connections represent edge directions. Travel direction is opposite at entry.
+	var entry_edge: Vector2 = connections[0] as Vector2
+	var exit_edge: Vector2 = connections[1] as Vector2
 	var radius: float = 32.0
 
-	# Angles from center to entry/exit edges
-	var entry_angle: float = atan2(entry_dir.y, entry_dir.x)
-	var exit_angle: float = atan2(exit_dir.y, exit_dir.x)
+	# Travel direction at entry is opposite of entry edge direction
+	var entry_angle: float = atan2(-entry_edge.y, -entry_edge.x)
+	# Travel direction at exit follows exit edge direction
+	var exit_angle: float = atan2(exit_edge.y, exit_edge.x)
 
 	# Determine the short arc direction between the two directions
 	var diff: float = exit_angle - entry_angle
@@ -242,13 +239,14 @@ func update_orientation(track: Track) -> float:
 		var travel_dir: Vector2 = get_travel_direction(track)
 		return atan2(travel_dir.y, travel_dir.x)
 	# Curve: interpolate rotation along the arc
-	var entry_dir: Vector2 = seg.connections[0] as Vector2
-	var exit_dir: Vector2 = seg.connections[1] as Vector2
-	var radius: float = 32.0
+	# Connections represent edge directions. Travel direction is opposite at entry.
+	var entry_edge: Vector2 = seg.connections[0] as Vector2
+	var exit_edge: Vector2 = seg.connections[1] as Vector2
 
-	# Arc geometry (same as _curve_position)
-	var entry_angle: float = atan2(entry_dir.y, entry_dir.x)
-	var exit_angle: float = atan2(exit_dir.y, exit_dir.x)
+	# Travel direction at entry is opposite of entry edge direction
+	var entry_angle: float = atan2(-entry_edge.y, -entry_edge.x)
+	# Travel direction at exit follows exit edge direction
+	var exit_angle: float = atan2(exit_edge.y, exit_edge.x)
 	var diff: float = exit_angle - entry_angle
 	if diff > PI:
 		diff -= 2.0 * PI
@@ -366,11 +364,11 @@ func get_travel_direction(track: Track) -> Vector2:
 	var seg: TrackSegment = segments[segment_index]
 	if seg.get_segment_type() == 1:
 		# Curve: return the tangent direction at current progress.
-		var entry_dir: Vector2 = seg.connections[0] as Vector2
-		var exit_dir: Vector2 = seg.connections[1] as Vector2
-		var radius: float = 32.0
-		var entry_angle: float = atan2(entry_dir.y, entry_dir.x)
-		var exit_angle: float = atan2(exit_dir.y, exit_dir.x)
+		# Connections represent edge directions. Travel is opposite at entry.
+		var entry_edge: Vector2 = seg.connections[0] as Vector2
+		var exit_edge: Vector2 = seg.connections[1] as Vector2
+		var entry_angle: float = atan2(-entry_edge.y, -entry_edge.x)
+		var exit_angle: float = atan2(exit_edge.y, exit_edge.x)
 		var diff: float = exit_angle - entry_angle
 		if diff > PI:
 			diff -= 2.0 * PI
@@ -378,7 +376,34 @@ func get_travel_direction(track: Track) -> Vector2:
 			diff += 2.0 * PI
 		var tangent_angle: float = entry_angle + diff * segment_progress
 		return Vector2(cos(tangent_angle), sin(tangent_angle))
-	return seg.connections[0] # Exit direction of straight
+	# Straight: use helper that looks at previous segment
+	return _get_travel_direction_for_segment(track, seg)
+
+
+## Compute the travel direction for a straight segment.
+## The travel direction is the direction from the previous segment's
+## center toward this segment's center.
+## @param track: The track data model for segment lookups.
+## @param seg: The track segment.
+## @return Normalized travel direction vector.
+func _get_travel_direction_for_segment(track: Track, seg: TrackSegment) -> Vector2:
+	# For the first segment, travel direction is connections[0]
+	if segment_index == 0:
+		return seg.connections[0] as Vector2
+
+	# For subsequent segments, find the previous segment and determine
+	# which of its connection edges points toward this segment.
+	var segments: Array[TrackSegment] = track.get_segments()
+	var prev_seg: TrackSegment = segments[segment_index - 1]
+
+	# The direction from prev_seg center to this seg center is one of
+	# prev_seg's connections. That connection IS the travel direction.
+	for conn in prev_seg.connections:
+		if prev_seg.grid_position + conn == seg.grid_position:
+			return conn as Vector2
+
+	# Fallback: return current segment's first connection
+	return seg.connections[0] as Vector2
 
 
 ## Get a simplified state dictionary for serialization.

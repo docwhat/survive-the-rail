@@ -119,14 +119,16 @@ func _car_position_on_curve(
 		return Vector2.ZERO
 
 	var seg: TrackSegment = segments[train.segment_index]
-	var entry_dir: Vector2 = seg.connections[0] as Vector2
-	var exit_dir: Vector2 = seg.connections[1] as Vector2
+	# Connections represent edge directions. Travel is opposite at entry.
+	var entry_edge: Vector2 = seg.connections[0] as Vector2
+	var exit_edge: Vector2 = seg.connections[1] as Vector2
 	var arc_radius: float = 32.0
 	var curve_center: Vector2 = seg.grid_position as Vector2 * Track.CELL_SIZE
 
-	# Angles from center to entry/exit edges (same as train.gd)
-	var entry_angle: float = atan2(entry_dir.y, entry_dir.x)
-	var exit_angle: float = atan2(exit_dir.y, exit_dir.x)
+	# Travel direction at entry is opposite of entry edge direction
+	var entry_angle: float = atan2(-entry_edge.y, -entry_edge.x)
+	# Travel direction at exit follows exit edge direction
+	var exit_angle: float = atan2(exit_edge.y, exit_edge.x)
 	var diff: float = exit_angle - entry_angle
 	if diff > PI:
 		diff -= 2.0 * PI
@@ -157,13 +159,15 @@ func _car_rotation_on_curve(car_index: int, engine_rotation: float) -> float:
 	if seg.get_segment_type() != 1:
 		return engine_rotation
 
-	var entry_dir: Vector2 = seg.connections[0] as Vector2
-	var exit_dir: Vector2 = seg.connections[1] as Vector2
+	# Connections represent edge directions. Travel is opposite at entry.
+	var entry_edge: Vector2 = seg.connections[0] as Vector2
+	var exit_edge: Vector2 = seg.connections[1] as Vector2
 	var arc_radius: float = 32.0
 
-	# Arc geometry (same as _curve_position)
-	var entry_angle: float = atan2(entry_dir.y, entry_dir.x)
-	var exit_angle: float = atan2(exit_dir.y, exit_dir.x)
+	# Travel direction at entry is opposite of entry edge direction
+	var entry_angle: float = atan2(-entry_edge.y, -entry_edge.x)
+	# Travel direction at exit follows exit edge direction
+	var exit_angle: float = atan2(exit_edge.y, exit_edge.x)
 	var diff: float = exit_angle - entry_angle
 	if diff > PI:
 		diff -= 2.0 * PI
