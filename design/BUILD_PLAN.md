@@ -164,6 +164,8 @@ Each task depends on the tasks listed above it. Complete each task before moving
 - Pivot angle calculation is mathematically complex (needs architect input)
 - Pivot animation looks wrong or jittery
 
+**Note — failure superseded by Task 4a:** The original approach of computing train and car position/orientation manually per segment type (straights, curves) produced persistent bugs: train spinning at curve entry, cars orbiting around the origin, and broken segment-to-segment transitions. The root cause was trying to manage geometry in both the movement and rendering code independently. Task 4a re-architects the system to separate data from presentation and movement (see below).
+
 ---
 
 ## Curve & Straight Alignment — Coordinate Model
@@ -275,6 +277,134 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
    direction _from the curve cell center to the entry edge_, which is the
    direction the train enters the curve (the exit direction of the previous
    straight).
+
+---
+
+### Task 4a — Data Model (3-Level Normalized)
+
+**Description:** Implement the three-level normalized data model for track segments. Replace the flat `segments` array with CellData, Segment, and SegmentType layers. Implement rotation and entrance-pair math with 90° increments.
+
+**Includes:**
+
+- `cell_data.gd` (or dict in `track.gd`) — `Dictionary<Vector2i, int>` mapping grid position → segment_id
+- `segment.gd` (Resource or struct) — `id: int`, `type_id: int`, `orientation: int` (0, 90, 180, 270)
+- `segment_type.gd` (Resource) — `id: int`, `name: String`, `pattern: Array[Vector2i]`, `base_cost: float`, `entrance_pairs: Array[EntrancePair]`
+- `entrance_pair.gd` (struct) — `cell: Vector2i`, `direction: String` (north/south/east/west)
+- `segment_type_catalog.tres` — read-only catalog of all segment types (1x1 straight, 1x2 straight, 1x4 straight, 1x1 cross, 2x2 curve)
+- Rotation utilities: `rotate_coord(coord, degrees)`, `rotate_direction(dir, degrees)`
+- Connection validation: `is_connected(segment_a, segment_b)` checks adjacency and opposite entrance directions
+- GUT tests for rotation math, entrance mapping, and connection validation
+
+**Acceptance Criteria:**
+
+- Segment type catalog loads as a `.tres` resource at game start
+- Rotation math works correctly for all 4 rotations (0°, 90°, 180°, 270°)
+- Entrance pair mapping (local → rotated → data coords) produces correct results
+- Connection validation correctly identifies adjacent segments with opposite entrance directions
+- All new data model classes are independent of rendering/movement
+- GUT tests for rotation, entrance mapping, and connection validation pass
+
+**Escalation Triggers:**
+
+- GDScript `Dictionary<Vector2i, int>` has performance issues for large grids
+- Rotation math produces inconsistent results for edge cases
+- Segment type resource format is unclear for Godot 4.x
+
+---
+
+### Task 4b — Track Path Builder
+
+**Description:** Build `track_path_builder.gd` to generate a Godot `Path2D` node from the three-level data model. The path builder groups cells by segment_id, looks up type + orientation, and generates the correct path geometry for each segment type.
+
+**Includes:**
+
+- `track_path_builder.gd` — `build_path(track: Track) -> Path2D`
+- Straight path: `line_to()` from first cell center to last cell center
+- 1x1 curve path: `curve_to()` with 90° arc (radius 32, centered on curve's grid cell)
+- 2x2 curve path: `curve_to()` with 90° arc (radius 64, centered at the 2x2 block's inner corner)
+- Cross path: two overlapping paths; path builder follows one path through (game logic determines direction)
+- Segment ordering: traverse connected segments in order (start → end) to build continuous path
+- Validation: path length > 0, no discontinuities at segment boundaries
+- GUT tests for path geometry correctness (straight, curve, cross)
+
+**Acceptance Criteria:**
+
+- `Path2D` is generated correctly for a single segment of each type in isolation
+- `Path2D` is continuous for a track with multiple connected segments (straight → curve → straight)
+- Path direction matches the track's logical flow (start to end)
+- Path length equals the sum of individual segment lengths
+- GUT tests for path geometry and continuity pass
+- No manual per-segment position/rotation math — path builder reads data model only
+
+**Escalation Triggers:**
+
+- `Curve2D` API for arcs is complex or produces unexpected results
+- Segment ordering (start → end) is ambiguous for tracks with branches or loops
+- Path continuity fails at certain segment type combinations
+
+---
+
+### Task 4c — Renderer Update
+
+**Description:** Update `track_renderer.gd` to draw from the data model directly in PlaceMode. The renderer reads CellData and Segment tables to determine what to draw at each grid position. Supports preview graphics, ghost segments, and entrance markers.
+
+**Includes:**
+
+- `track_renderer.gd` — `draw()` iterates CellData, looks up Segment → SegmentType, and draws appropriate graphic
+- PlaceMode drawing: grid cells with segment graphics, preview (ghost) of next segment, entrance markers at open ends
+- GameMode drawing: same as PlaceMode (no change — renderer always reads from data model)
+- Segment type lookup: `segment_id` → `Segment` → `SegmentType` → graphic + orientation
+- Placement validation visual: show valid/invalid placement spots during preview
+- `main.tscn` — update scene to use new renderer
+- GUT tests for renderer data model integration (can draw a single segment from data)
+
+**Acceptance Criteria:**
+
+- Renderer draws correct graphics for all segment types from the data model
+- Preview (ghost) shows where the next segment will be placed
+- Entrance markers indicate where new segments can connect
+- Rendering works in both PlaceMode and GameMode (no mode-specific code)
+- GUT tests for renderer integration pass
+
+**Escalation Triggers:**
+
+- Renderer performance degrades with many segments (needs batching)
+- Preview positioning doesn't align with grid cells
+- Godot `CanvasItem.draw_*` API is insufficient for preview effects
+
+---
+
+### Task 4d — Train Migration to PathFollow2D
+
+**Description:** Migrate `train.gd` from manual segment-by-segment movement to Godot's `Path2D`/`PathFollow2D` system. The train's engine is a `PathFollow2D` that follows the path generated by Task 4b. Cars follow the same path at offset distances based on coupling length.
+
+**Includes:**
+
+- `train.gd` — replace manual position math with `PathFollow2D.progress` for engine position
+- `PathFollow2D` setup: add to scene tree, attach to `Path2D`, set `rotate_automatically = true`
+- Engine movement: `progress += speed * delta` along path
+- Car movement: each car has its own `PathFollow2D` on the same path, offset by coupling distance
+- Car coupling: car's `progress = engine.progress - coupling_offset` (with wrapping for path length)
+- Bogie/pivot: cars rotate around their coupling point using `PathFollow2D`'s automatic rotation
+- Mode switch: at PlaceMode → GameMode, build Path2D, set train's progress based on current position, no jump
+- GUT tests for mode-switch invariant (train position unchanged at mode switch)
+- GUT tests for car coupling offsets
+
+**Acceptance Criteria:**
+
+- Train engine moves smoothly along the generated Path2D
+- Train orientation matches path tangent at all points (no manual rotation math)
+- Cars follow the path behind the engine at correct coupling distances
+- **Mode-switch invariant:** Train and cars maintain exact position and state when switching PlaceMode → GameMode
+- No manual per-segment position/rotation math for curves
+- GUT tests for mode-switch invariant and car coupling pass
+
+**Escalation Triggers:**
+
+- `PathFollow2D` progress offset for cars causes jitter or drifting
+- `PathFollow2D` rotation doesn't match expected train heading
+- Mode-switch causes visible train position jump despite progress recalculation
+- Path length wrapping for car offsets produces incorrect positions
 
 ---
 
@@ -654,24 +784,28 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 
 ## Summary
 
-| Task | Description                | Depends On | Testable?                         |
-| ---- | -------------------------- | ---------- | --------------------------------- |
-| 1    | Project setup              | —          | Yes (headless Godot, mise, trunk) |
-| 2    | Physics system             | —          | Yes (GUT)                         |
-| 2a   | Physics polish & hygiene   | 2          | Yes (GUT)                         |
-| 3    | Track laying               | 2a         | Yes (GUT + manual)                |
-| 4    | Train controls (keyboard)  | 2, 3       | Yes (GUT + manual)                |
-| 5    | Train controls (G.U.I.D.E) | 4          | Yes (manual)                      |
-| 6    | Car auto-fire              | 2, 4       | Yes (GUT)                         |
-| 7    | Enemy spawning             | 2          | Yes (GUT + manual)                |
-| 8    | Projectiles                | 2, 6       | Yes (GUT)                         |
-| 9    | Damage & XP                | 2, 7, 8    | Yes (GUT)                         |
-| 10   | Upgrade picker             | 9          | Yes (GUT)                         |
-| 11   | Chest drops                | 7, 10      | Yes (GUT)                         |
-| 12   | Save system                | 9, 10      | Yes (GUT)                         |
-| 13   | Settings                   | 12         | Yes (GUT)                         |
-| 14   | UI & story                 | 4, 6, 10   | Partial (GUT for text keys)       |
-| 15   | Audio                      | 14         | No (manual)                       |
-| 16   | Build targets              | 15         | Yes (headless export)             |
-| 17   | CI/CD pipeline             | 16         | Yes (CI runs)                     |
-| 18   | Polish (ongoing)           | 1-17       | No (refactoring)                  |
+| Task | Description                     | Depends On | Testable?                                     |
+| ---- | ------------------------------- | ---------- | --------------------------------------------- |
+| 1    | Project setup                   | —          | Yes (headless Godot, mise, trunk)             |
+| 2    | Physics system                  | —          | Yes (GUT)                                     |
+| 2a   | Physics polish & hygiene        | 2          | Yes (GUT)                                     |
+| 3    | Track laying                    | 2a         | Yes (GUT + manual)                            |
+| 4    | Train controls (keyboard)       | 2, 3       | Yes (GUT + manual) (superseded in part by 4a) |
+| 4a   | Data Model (3-level normalized) | 2, 3, 4    | Yes (GUT: rotation, entrance, connection)     |
+| 4b   | Track Path Builder              | 4a         | Yes (GUT: path geometry, continuity)          |
+| 4c   | Renderer Update                 | 4a         | Yes (GUT: renderer integration)               |
+| 4d   | Train Migration to PathFollow2D | 4b, 4c     | Yes (GUT: mode-switch invariant, coupling)    |
+| 5    | Train controls (G.U.I.D.E)      | 4a         | Yes (manual)                                  |
+| 6    | Car auto-fire                   | 2, 4       | Yes (GUT)                                     |
+| 7    | Enemy spawning                  | 2          | Yes (GUT + manual)                            |
+| 8    | Projectiles                     | 2, 6       | Yes (GUT)                                     |
+| 9    | Damage & XP                     | 2, 7, 8    | Yes (GUT)                                     |
+| 10   | Upgrade picker                  | 9          | Yes (GUT)                                     |
+| 11   | Chest drops                     | 7, 10      | Yes (GUT)                                     |
+| 12   | Save system                     | 9, 10      | Yes (GUT)                                     |
+| 13   | Settings                        | 12         | Yes (GUT)                                     |
+| 14   | UI & story                      | 4, 6, 10   | Partial (GUT for text keys)                   |
+| 15   | Audio                           | 14         | No (manual)                                   |
+| 16   | Build targets                   | 15         | Yes (headless export)                         |
+| 17   | CI/CD pipeline                  | 16         | Yes (CI runs)                                 |
+| 18   | Polish (ongoing)                | 1-17       | No (refactoring)                              |
