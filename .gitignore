@@ -34,3 +34,7 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Pi plugin: superpowers
+.superpowers
+docs/superpowers
