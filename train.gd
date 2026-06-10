@@ -161,28 +161,23 @@ func get_car_followers() -> Array[CarPathFollower]:
 
 ## Get the train's current progress along the path.
 func get_progress() -> float:
-	if _path_follower == null:
-		# Fallback: compute from segment state
-		if cars.size() > 0:
-			var progress: float = segment_index * 1.0 + segment_progress
-			var total_length: float = cars.size()
-			if total_length > 0:
-				return progress / total_length
-			return 0.0
-		return 0.0
-	return _path_follower.get_progress()
+	if _path_follower != null:
+		return _path_follower.get_progress()
+	# No path follower — return 0 for segment mode
+	return 0.0
 
 
 ## Set the train's progress along the path.
 ## @param progress: Progress value (0.0 to 1.0 range).
 func set_progress(progress: float) -> void:
 	if _path_follower != null:
-		var total_length: float = _path_follower._total_path_length
-		_path_follower.set_progress(progress * total_length)
-
+		# Clamp progress to valid range, then set
+		_path_follower.set_progress(clampf(progress, 0.0, 1.0))
 		# Update car followers with their offsets
 		for i in range(_car_followers.size()):
-			_car_followers[i].set_base_progress(progress * total_length - _coupling_offsets[i])
+			_car_followers[i].set_base_progress(
+				_path_follower.get_progress() - _coupling_offsets[i],
+			)
 
 
 ## Update position using the path follower.
@@ -487,7 +482,7 @@ func get_car_count() -> int:
 ## @param track: The Track data model to read segment orientation from.
 ## @return Normalized direction vector of travel.
 func get_travel_direction(track: Track) -> Vector2:
-	if track.cars.size() == 0:
+	if track.get_segment_count() == 0:
 		return Vector2.RIGHT
 	var segments: Array[TrackSegment] = track.get_segments()
 	if segment_index >= segments.size():
@@ -574,8 +569,189 @@ func is_using_path_follower() -> bool:
 
 ## Switch from segment-based to path follower mode.
 ## @param track: The Track data model to build the path from.
-func switch_to_path_mode(track: Track) -> void:
+func switch_to_path_mode(track_model: Track) -> void:
 	# Build the path using the path builder
 	var builder: TrackPathBuilder = TrackPathBuilder.new()
-	var path: Path2D = builder.build_full_path(track._data_table, track._segment_table)
-	set_path(path, track)
+	var path: Path2D = builder.build_full_path(track_model._data_table, track_model._segment_table)
+	set_path(path, track_model)
+	_has_path = true
+
+	# Compute the train's current position on the new path
+	_compute_path_progress_from_position(track_model)
+
+
+## Switch from path follower mode back to segment-based mode.
+## Preserves the train's physical position on the track.
+## @param track: The Track data model for segment lookups.
+func switch_to_segment_mode(track_model: Track) -> void:
+	# Compute segment_index and segment_progress from current position
+	_compute_segment_state_from_position(track_model)
+	_has_path = false
+	# Cleanup path followers
+	_path_follower = null
+	_car_followers = []
+	_coupling_offsets = []
+
+
+## Get the current path progress value (0.0 to 1.0).
+func get_path_progress() -> float:
+	return get_progress()
+
+
+## Set the train's progress along the current path.
+## Used for undo/rebuild operations.
+## @param progress: Progress value (0.0 to 1.0).
+func set_path_progress(progress: float) -> void:
+	if _path_follower != null:
+		var total_length: float = _compute_path_total_length(_path_follower)
+		if total_length > 0:
+			_path_follower.set_progress(clampf(progress, 0.0, 1.0) * total_length)
+			# Update car followers
+			for i in range(_car_followers.size()):
+				_car_followers[i].set_base_progress(
+					_path_follower.get_progress() - _coupling_offsets[i],
+				)
+
+
+## Compute the train's progress along the path from its current world position.
+## Finds the closest point on the path to the train's current position.
+func _compute_path_progress_from_position(track_model: Track) -> void:
+	if _path_follower == null:
+		return
+	var pf_node: PathFollow2D = _path_follower.get_path_follow_node()
+	var path: Path2D = pf_node.path
+	if path == null:
+		return
+
+	# Find the closest point on the path to the train's position
+	var closest_progress: float = _find_closest_path_progress(path)
+	var total_length: float = _compute_path_total_length(_path_follower)
+
+	# Clamp and set
+	if total_length > 0:
+		_path_follower.set_progress(clampf(closest_progress, 0.0, total_length))
+
+
+## Compute the train's segment_index and segment_progress from its position.
+func _compute_segment_state_from_position(track_model: Track) -> void:
+	if track_model == null:
+		return
+	var closest_seg: int = _find_closest_segment(track_model)
+	segment_index = closest_seg
+	segment_progress = 0.0
+	position = track_model.get_segment_position(closest_seg)
+
+
+## Find the path progress value closest to a world position.
+func _find_closest_path_progress(path: Path2D) -> float:
+	var best_progress: float = 0.0
+	var best_distance: float = INF
+	var total_length: float = _compute_path_total_length_from_path(path)
+	if total_length <= 0:
+		return 0.0
+
+	var step: float = maxf(total_length / 100.0, 0.1)
+	for p in range(0, int(total_length / step) + 1):
+		var t: float = minf(p * step, total_length)
+		var pos_at_t: Vector2 = _get_point_at_path_progress(path, t)
+		var d: float = position.distance_to(pos_at_t)
+		if d < best_distance:
+			best_distance = d
+			best_progress = t
+
+	return best_progress
+
+
+## Compute total path length from the path followers.
+func _compute_path_total_length(path_follower: TrainPathFollower) -> float:
+	if path_follower == null:
+		return 0.0
+	return path_follower._total_path_length
+
+
+## Compute total path length from a Path2D node.
+func _compute_path_total_length_from_path(path: Path2D) -> float:
+	var total: float = 0.0
+	for child in path.get_children():
+		match child.get_class():
+			"PathSegLine":
+				var a: Vector2 = child.get_point_a()
+				var b: Vector2 = child.get_point_b()
+				total += a.distance_to(b)
+			"PathSegCurve2D":
+				var a: Vector2 = child.get_point_a()
+				var b: Vector2 = child.get_point_b()
+				var c: Vector2 = child.get_point_c()
+				var mid: Vector2 = _bezier_midpoint(a, b, c)
+				total += a.distance_to(mid) + mid.distance_to(c)
+			_:
+				pass
+	return total
+
+
+## Get the world position at a specific progress value along the path.
+func _get_point_at_path_progress(path: Path2D, progress: float) -> Vector2:
+	var remaining: float = progress
+	for child in path.get_children():
+		match child.get_class():
+			"PathSegLine":
+				var a: Vector2 = child.get_point_a()
+				var b: Vector2 = child.get_point_b()
+				var seg_len: float = a.distance_to(b)
+				if remaining <= seg_len:
+					return a.lerp(b, remaining / seg_len)
+				remaining -= seg_len
+			"PathSegCurve2D":
+				var a: Vector2 = child.get_point_a()
+				var b: Vector2 = child.get_point_b()
+				var c: Vector2 = child.get_point_c()
+				var mid: Vector2 = _bezier_midpoint(a, b, c)
+				var seg_len: float = a.distance_to(mid) + mid.distance_to(c)
+				if remaining <= seg_len:
+					return _get_point_on_curve_at_progress(child, remaining / seg_len)
+				remaining -= seg_len
+			_:
+				pass
+	return Vector2.ZERO
+
+
+## Get a point on a curve segment at local progress (0.0 to 1.0).
+func _get_point_on_curve_at_progress(curve_segment, local_progress: float) -> Vector2:
+	var a: Vector2 = curve_segment.get_point_a()
+	var b: Vector2 = curve_segment.get_point_b()
+	var c: Vector2 = curve_segment.get_point_c()
+	var mid: Vector2 = _bezier_midpoint(a, b, c)
+
+	if local_progress <= 0.5:
+		# First half: a -> mid
+		var local_t: float = local_progress * 2.0
+		return a.lerp(mid, local_t)
+	else:
+		# Second half: mid -> c
+		var local_t: float = (local_progress - 0.5) * 2.0
+		return mid.lerp(c, local_t)
+
+
+## Find the closest segment index for a given position.
+func _find_closest_segment(track_model: Track) -> int:
+	var segments: Array[TrackSegment] = track_model.get_segments()
+	if segments.size() == 0:
+		return 0
+
+	var best_dist: float = INF
+	var best_idx: int = 0
+	for i in range(segments.size()):
+		var seg_pos: Vector2 = track_model.get_segment_position(i)
+		var d: float = position.distance_to(seg_pos)
+		if d < best_dist:
+			best_dist = d
+			best_idx = i
+	return best_idx
+
+
+## Compute a Bezier midpoint at t=0.5.
+func _bezier_midpoint(p0: Vector2, p1: Vector2, p2: Vector2) -> Vector2:
+	var t: float = 0.5
+	var x: float = (1 - t) * (1 - t) * p0.x + 2 * (1 - t) * t * p1.x + t * t * p2.x
+	var y: float = (1 - t) * (1 - t) * p0.y + 2 * (1 - t) * t * p1.y + t * t * p2.y
+	return Vector2(x, y)
