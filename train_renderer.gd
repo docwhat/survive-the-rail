@@ -1,6 +1,9 @@
 extends CanvasItem
 ## Renders the train data model to visible graphics.
 ## Draws engine + cars as rotated rectangles.
+##
+## Uses path follower positions when available, falls back to
+## segment-based calculation for backward compatibility.
 
 var train: Train = null
 ## Reference to the Train data model.
@@ -35,6 +38,43 @@ func _draw() -> void:
 	if train == null or track == null:
 		return
 
+	# Try path follower mode first
+	if train.is_using_path_follower():
+		_draw_path_mode()
+	else:
+		_draw_segment_mode()
+
+	# Draw position marker at engine center
+	var screen_engine: Vector2 = train.position - camera_offset
+	draw_circle(screen_engine, 3.0, Color(1.0, 1.0, 0.0, 0.4))
+
+
+## Draw using path follower positions.
+func _draw_path_mode() -> void:
+	var path_follower: TrainPathFollower = train.get_path_follower()
+	if path_follower == null:
+		_draw_segment_mode()
+		return
+
+	var car_followers: Array[CarPathFollower] = train.get_car_followers()
+
+	# Get engine position from path follower
+	var engine_pos: Vector2 = path_follower.get_position()
+	var screen_engine: Vector2 = engine_pos - camera_offset
+	var engine_angle: float = path_follower.get_angle()
+
+	# Draw cars
+	for i in range(car_followers.size()):
+		var car_pos: Vector2 = car_followers[i].get_position()
+		var car_rotation: float = car_followers[i].get_angle()
+		_draw_car(car_pos - camera_offset, car_rotation, i, car_followers.size())
+
+	# Draw engine
+	_draw_engine(screen_engine, engine_angle)
+
+
+## Draw using legacy segment-based positions.
+func _draw_segment_mode() -> void:
 	var screen_engine: Vector2 = train.position - camera_offset
 	var rotation: float = train.update_orientation(track)
 
@@ -52,11 +92,9 @@ func _draw() -> void:
 		var car_rotation: float
 
 		if is_on_curve:
-			# Position cars along the arc behind the engine
 			screen_car = _car_position_on_curve(i)
 			car_rotation = _car_rotation_on_curve(i, rotation)
 		else:
-			# Straight: linear spacing behind engine
 			var travel_dir: Vector2 = train.get_travel_direction(track)
 			screen_car = screen_engine - travel_dir.normalized() * (i + 1) * CAR_SPACING
 			car_rotation = rotation + 0.0
@@ -65,9 +103,6 @@ func _draw() -> void:
 
 	# Draw the engine at the front
 	_draw_engine(screen_engine, rotation)
-
-	# Draw position marker at engine center
-	draw_circle(screen_engine, 3.0, Color(1.0, 1.0, 0.0, 0.4))
 
 
 ## Draw the train engine as a red rectangle with direction arrow.
