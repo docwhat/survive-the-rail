@@ -2,8 +2,9 @@ class_name InputManager
 ## Centralized input abstraction layer (G.U.I.D.E-style).
 ##
 ## Provides a clean interface for checking throttle and brake states.
-## Input bindings are configured in project settings (project.godot)
-## to support both keyboard and controller inputs.
+## Input bindings must be configured in the Godot Editor
+## (Project Settings > Input Map) for the actions "throttle" and "brake".
+## Supports keyboard (W/S/Up/Down/Space) and controller input.
 
 const THROTTLE_ACTION: String = "throttle"
 const BRAKE_ACTION: String = "brake"
@@ -32,7 +33,6 @@ func brake_just_pressed() -> bool:
 
 
 ## Get a list of configured action names.
-## Returns all actions registered in project settings.
 func get_action_names() -> PackedStringArray:
 	return InputMap.get_actions()
 

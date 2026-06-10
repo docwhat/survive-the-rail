@@ -7,8 +7,6 @@ var manager = null
 
 
 func setup() -> void:
-	# InputManager is a runtime class — only available in Godot editor/runtime,
-	# not in headless mode. Guard accordingly.
 	manager = _try_create_input_manager()
 
 
