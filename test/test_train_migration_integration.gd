@@ -4,8 +4,8 @@
 ## → train movement → mode switching.
 extends GdUnitTestSuite
 
-var track: Track = null
-var train: Train = null
+var track = null
+var train = null
 
 
 func setup() -> void:

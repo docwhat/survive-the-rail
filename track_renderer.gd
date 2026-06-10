@@ -263,8 +263,8 @@ func _draw_2x2_curve(cells: Array[Vector2i], orientation: int, center: Vector2) 
 			break
 
 	var screen_center: Vector2 = center_cell as Vector2 * Track.CELL_SIZE - center
-	var entry_point: Vector2 = screen_center + entry_dir as Vector2 * radius
-	var exit_point: Vector2 = screen_center + exit_dir as Vector2 * radius
+	var entry_point: Vector2 = screen_center + (entry_dir as Vector2) * radius
+	var exit_point: Vector2 = screen_center + (exit_dir as Vector2) * radius
 
 	# Draw fill polygon
 	var filled_points: PackedVector2Array = PackedVector2Array()
@@ -408,7 +408,7 @@ func _draw_entrance_markers(cell: Vector2i, type_id: int, orientation: int, cent
 	var screen_pos: Vector2 = cell as Vector2 * Track.CELL_SIZE - center
 	var conns: Array[Vector2i] = _get_valid_connections(type_id, orientation)
 	for dir in conns:
-		var marker_pos: Vector2 = screen_pos + dir as Vector2 * Track.CELL_SIZE * 0.3
+		var marker_pos: Vector2 = screen_pos + (dir as Vector2) * Track.CELL_SIZE * 0.3
 		draw_circle(marker_pos, 4.0, ENTRANCE_MARKER_COLOR)
 
 

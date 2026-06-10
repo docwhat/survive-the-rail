@@ -2,13 +2,12 @@ extends Node2D
 ## Main scene entry point.
 ## Manages game state transitions between phases:
 ## TrackLay -> Playing -> Upgrading -> GameOver
-## Keyboard controls: W/Up = throttle, S/Down/Space = brake.
+## Input abstraction via InputManager (G.U.I.D.E-style).
 
 var train: Train = null
 var track: Track = null
 
-var is_throttle: bool = false
-var is_brake: bool = false
+var input_manager: InputManager = null
 
 var train_renderer: Control = null
 var track_renderer: Control = null
@@ -16,6 +15,9 @@ var ui_renderer: CanvasLayer = null
 
 
 func _ready() -> void:
+	# Initialize input manager
+	input_manager = InputManager.new()
+
 	# Initialize data models
 	train = Train.new()
 	train.initialize(100.0, 200.0, 100.0, 100.0, 10.0, 0.0, 0)
@@ -67,22 +69,14 @@ func _place_initial_track() -> void:
 	track.try_place_segment(Vector2i(3, 2), seg5)
 
 
-func _input(event: InputEvent) -> void:
-	if event is InputEventKey:
-		var key: Key = event.keycode
-		var pressed: bool = event.pressed
-		if key == KEY_W or key == KEY_UP:
-			is_throttle = pressed
-		elif key == KEY_S or key == KEY_DOWN or key == KEY_SPACE:
-			is_brake = pressed
-
-
 func _process(delta: float) -> void:
 	if train == null or track == null:
 		return
 
-	# Update physics
-	train.update_input(is_throttle, is_brake)
+	# Update input from manager
+	var throttle: bool = input_manager.get_throttle()
+	var brake: bool = input_manager.get_brake()
+	train.update_input(throttle, brake)
 	train.update_speed(delta)
 	train.update_position(track, delta)
 	train.update_orientation(track)
