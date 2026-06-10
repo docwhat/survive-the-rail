@@ -62,6 +62,20 @@ var cars: Array = []
 var enabled: bool = false
 ## When false, the train doesn't respond to input (e.g. game-over).
 
+## --- Path Follower State (Task 4d) ---
+
+var _path_follower: TrainPathFollower = null
+## Engine path follower wrapper.
+
+var _car_followers: Array[CarPathFollower] = []
+## Car path follower wrappers, indexed by car index.
+
+var _has_path: bool = false
+## Whether a valid path has been set up.
+
+var _coupling_offsets: Array[float] = []
+## Distance behind engine for each car (world units).
+
 ## --- Setup ---
 
 
@@ -107,6 +121,120 @@ func remove_car(car: Car) -> void:
 	if car in cars:
 		cars.erase(car)
 		total_weight = _calculate_total_weight()
+		# Clean up car follower
+		if _car_followers.size() > 0:
+			_car_followers.remove_at(cars.find(car))
+			if _car_followers.size() > 0:
+				_coupling_offsets.remove_at(cars.find(car))
+
+## --- Path Follower Integration (Task 4d) ---
+
+
+## Set up the path followers with a track's built path.
+## @param path: The Path2D to follow.
+## @param track: The Track data model (for segment info).
+func set_path(path: Path2D, track: Track = null) -> void:
+	_path_follower = TrainPathFollower.new()
+	_path_follower.initialize(path)
+	_has_path = true
+
+	# Recreate car followers based on current cars
+	_car_followers = []
+	_coupling_offsets = []
+	for car: Car in cars:
+		var follower: CarPathFollower = CarPathFollower.new()
+		var offset: float = _get_car_coupling_offset(car, _car_followers.size())
+		follower.initialize(path, offset)
+		_car_followers.append(follower)
+		_coupling_offsets.append(offset)
+
+
+## Get the engine path follower.
+func get_path_follower() -> TrainPathFollower:
+	return _path_follower
+
+
+## Get the car path followers array.
+func get_car_followers() -> Array[CarPathFollower]:
+	return _car_followers
+
+
+## Get the train's current progress along the path.
+func get_progress() -> float:
+	if _path_follower == null:
+		# Fallback: compute from segment state
+		if cars.size() > 0:
+			var progress: float = segment_index * 1.0 + segment_progress
+			var total_length: float = cars.size()
+			if total_length > 0:
+				return progress / total_length
+			return 0.0
+		return 0.0
+	return _path_follower.get_progress()
+
+
+## Set the train's progress along the path.
+## @param progress: Progress value (0.0 to 1.0 range).
+func set_progress(progress: float) -> void:
+	if _path_follower != null:
+		var total_length: float = _path_follower._total_path_length
+		_path_follower.set_progress(progress * total_length)
+
+		# Update car followers with their offsets
+		for i in range(_car_followers.size()):
+			_car_followers[i].set_base_progress(progress * total_length - _coupling_offsets[i])
+
+
+## Update position using the path follower.
+## @param delta: Time step since last frame.
+func update_position_path_follower(delta: float) -> void:
+	if _path_follower == null or not _has_path:
+		# Fallback to segment-based position
+		update_position(_dummy_track(), delta)
+		return
+
+	if speed <= 0.0:
+		return
+
+	# Distance to move this frame
+	var distance: float = speed * delta
+	var total_length: float = _path_follower._total_path_length
+
+	# Advance progress
+	var current_progress: float = _path_follower.get_progress() + distance
+
+	# Clamp to path bounds
+	current_progress = clampf(current_progress, 0.0, total_length)
+	_path_follower.set_progress(current_progress)
+
+	# Update position from the path follower
+	position = _path_follower.get_position()
+
+	# Update car followers
+	for i in range(_car_followers.size()):
+		var car_progress: float = current_progress - _coupling_offsets[i]
+		car_progress = clampf(car_progress, 0.0, total_length)
+		_car_followers[i].set_base_progress(car_progress)
+
+
+## Update orientation using the path follower.
+func update_orientation_path_follower() -> float:
+	if _path_follower != null and _has_path:
+		return _path_follower.get_angle()
+	return update_orientation(_dummy_track())
+
+
+## Get the travel direction from the path follower.
+func get_travel_direction_path_follower() -> Vector2:
+	if _path_follower != null and _has_path:
+		var angle: float = _path_follower.get_angle()
+		return Vector2(cos(angle), sin(angle))
+	return get_travel_direction(_dummy_track())
+
+
+## Get a dummy track for fallback methods.
+func _dummy_track() -> Track:
+	return null
 
 ## --- Physics ---
 
@@ -223,6 +351,9 @@ func _curve_position(center: Vector2, connections: Array[Vector2i], progress: fl
 ## @param track: The Track data model to read segment orientation from.
 ## @return Rotation angle in radians.
 func update_orientation(track: Track) -> float:
+	# Guard against null track (e.g. from path follower fallback)
+	if track == null:
+		return 0.0
 	var segments: Array[TrackSegment] = track.get_segments()
 	if segments.size() == 0:
 		return 0.0
@@ -356,7 +487,7 @@ func get_car_count() -> int:
 ## @param track: The Track data model to read segment orientation from.
 ## @return Normalized direction vector of travel.
 func get_travel_direction(track: Track) -> Vector2:
-	if track.get_segment_count() == 0:
+	if track.cars.size() == 0:
 		return Vector2.RIGHT
 	var segments: Array[TrackSegment] = track.get_segments()
 	if segment_index >= segments.size():
@@ -406,10 +537,17 @@ func _get_travel_direction_for_segment(track: Track, seg: TrackSegment) -> Vecto
 	return seg.connections[0] as Vector2
 
 
+## Calculate the coupling offset for a car at the given index.
+## Each car is spaced by CELL_SIZE along the path behind the engine.
+func _get_car_coupling_offset(car: Car, car_index: int) -> float:
+	# Each car sits one cell length behind the previous one
+	return (car_index + 1) * CELL_SIZE
+
+
 ## Get a simplified state dictionary for serialization.
 ## @return Dictionary of train state suitable for save/load.
 func get_state() -> Dictionary:
-	return {
+	var state: Dictionary = {
 		"position": position,
 		"speed": speed,
 		"health": health,
@@ -422,4 +560,22 @@ func get_state() -> Dictionary:
 		"max_speed": max_speed,
 		"car_count": cars.size(),
 		"enabled": enabled,
+		"using_path_follower": _has_path,
+		"progress": get_progress(),
+		"car_coupling_offsets": _coupling_offsets.duplicate(),
 	}
+	return state
+
+
+## Check if the train is using path follower mode.
+func is_using_path_follower() -> bool:
+	return _has_path
+
+
+## Switch from segment-based to path follower mode.
+## @param track: The Track data model to build the path from.
+func switch_to_path_mode(track: Track) -> void:
+	# Build the path using the path builder
+	var builder: TrackPathBuilder = TrackPathBuilder.new()
+	var path: Path2D = builder.build_full_path(track._data_table, track._segment_table)
+	set_path(path, track)
