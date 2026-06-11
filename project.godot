@@ -21,6 +21,10 @@ boot_splash/show_image=false
 boot_splash/stretch_mode=0
 boot_splash/use_filter=false
 
+[autoload]
+
+InputBoot="*res://input_boot.gd"
+
 [debug]
 
 file_logging/enable_file_logging=true
@@ -38,10 +42,6 @@ window/energy_saving/keep_screen_on=false
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=6
-
-[autoload]
-
-InputBoot="*res://input_boot.gd"
 
 [editor_plugins]
 
