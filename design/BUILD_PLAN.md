@@ -416,23 +416,68 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 
 ---
 
-### Task 5 — Train Controls (G.U.I.D.E + Controllers)
+### Task 5 — Train Demo Track & Controls
 
-**Description:** Extend train input to support controllers via G.U.I.D.E.
+**Description:** Set up a demo track showing all segment types (straight, curve, crossing) with a train that starts moving at approximately 6.4 units/s (covering the track in ~10 seconds), responds to keyboard input (W/Up = speed up, S/Down = slow down), supports reverse mode toggling with R, and has 3 attached cars.
 
 **Includes:**
 
-- Integrate G.U.I.D.E for input abstraction
-- Controller mapping for throttle/brake
-- Keyboard input still works (G.U.I.D.E fallback or dual support)
-- Verify controller input feels right (dead zones, sensitivity)
+- **Example track** (`_place_initial_track()` in `main.gd`): Build a linear track (start → end) using at least one straight segment, one curve segment, and one crossing segment. The train path must go through all segment types and terminate at a clear end point.
+- **Train movement** (`train.gd`, `main.gd`): Initialize train at `speed = 6.4` units/s and `max_speed = 20.0` (covers ~640-unit track in ~10 seconds). Train auto-moves along the path from game start. When the train reaches the end of the path, it comes to a dead stop (`speed = 0`).
+- **Keyboard controls** (`main.gd`, `train.gd`): W key or Up Arrow = throttle (speed up). S key or Down Arrow = brake (slow down). Speed never goes below 0.
+- **Reverse mode** (`train.gd`): Add `is_reversed: bool = false` flag. When train is stopped (`speed == 0`), pressing R toggles between forward (`is_reversed = false`) and reverse (`is_reversed = true`). When reversed, W/Up moves the train backward along the path (decreasing progress), S/Down moves it forward (increasing progress). R only toggles when `speed == 0`.
+- **3 cars**: `main.gd` already adds 3 cars (utility, weapon, cargo) — confirmed present and functional.
+- **Scene update** (`main.tscn`): No structural changes needed — same renderer nodes, just different initial state.
 
 **Acceptance Criteria:**
 
-- G.U.I.D.E is installed and configured in the project
-- Controller throttle/brake input works
-- Keyboard input still works alongside G.U.I.D.E
-- Controller dead zones and sensitivity are reasonable
+- Game starts with a visible track containing straights, curves, and a crossing segment
+- Train starts moving at ~6.4 units/s, covers the entire track in ~10 seconds
+- Train comes to a complete stop at the end of the track
+- W/Up accelerates the train, S/Down decelerates it
+- When stopped, pressing R toggles reverse mode (visual indicator shown)
+- In reverse mode, W/Up moves train backward along the path, S/Down moves forward
+- 3 cars are attached and move correctly in both directions
+- All path types (straight, curve, crossing) produce correct train pathing in both directions
+- (Manual testing — GUT tests for reverse mode logic in `train.gd`)
+
+**Escalation Triggers:**
+
+- Track geometry doesn't produce a clean start-to-end path
+- Reverse mode causes position jumps at segment transitions
+- Cars don't follow correctly in reverse direction
+- Train doesn't stop cleanly at the end of the path
+
+---
+
+### Task 6 — Switch to G.U.I.D.E Input Layer
+
+**Description:** Replace the current InputManager (Godot InputMap-based) with G.U.I.D.E as the sole input abstraction layer. Configure both keyboard and gamepad bindings.
+
+**Includes:**
+
+- **GUIDE mapping context resource**: Create `mapping_contexts/gameplay.tres` (GUIDEMappingContext) with the following action mappings:
+  - `throttle` action: W key + Up Arrow (keyboard) + Right Trigger (gamepad)
+  - `brake` action: S key + Down Arrow (keyboard) + Left Trigger (gamepad)
+  - `reverse_toggle` action: R key (keyboard) + X button (gamepad)
+  - All bindings use GUIDEInputKey for keyboard and GUIDEInputJoyButton / GUIDEInputJoyAxis1D for gamepad
+  - Triggers are treated as on/off (binary), not analog — same behavior as keyboard
+- **Enable GUIDE addon**: Enable the GUIDE plugin in `project.godot` autoload section
+- **Replace InputManager** (`main.gd`): Swap `InputManager` for GUIDE actions:
+  - Replace `input_manager.get_throttle()` with `throttle_action.is_triggered()` (or `is_down()`)
+  - Replace `input_manager.get_brake()` with `brake_action.is_triggered()`
+  - Add reverse toggle: `reverse_toggle_action.just_triggered().connect(_toggle_reverse)`
+- **Remove old input files**: Delete `input_manager.gd`, `input_action.gd`, `input_boot.gd` (no longer needed)
+- **Scene update** (`main.tscn`): Export `throttle_action`, `brake_action`, `reverse_toggle_action` from the game script, wire them in the scene
+
+**Acceptance Criteria:**
+
+- GUIDE addon is enabled in project.godot as an autoload plugin
+- Keyboard input (W, S, Up, Down, R) works identically to the previous InputManager
+- Gamepad input works: Right Trigger = throttle, Left Trigger = brake, X button = reverse toggle
+- Triggers act as binary on/off (not analog) — equivalent to pressing a keyboard key
+- InputManager, InputAction, InputBoot classes are removed
+- All existing functionality preserved (throttle, brake, reverse toggle, 3 cars, demo track)
 - (Manual testing — no GUT tests needed for input hardware)
 
 **Escalation Triggers:**
@@ -440,10 +485,11 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 - G.U.I.D.E API unclear or undocumented for throttle/brake mapping
 - G.U.I.D.E conflicts with Godot's built-in input system
 - Controller feels unresponsive or too sensitive
+- GUIDE context resource format unclear (must use .tres files in `mapping_contexts/` folder)
 
 ---
 
-### Task 6 — Car System & Auto-Fire
+### Task 7 — Car System & Auto-Fire
 
 **Description:** Train cars that auto-aim and auto-fire at enemies, plus utility cars for non-combat bonuses.
 
@@ -475,7 +521,7 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 
 ---
 
-### Task 7 — Enemy Spawning & Movement
+### Task 8 — Enemy Spawning & Movement
 
 **Description:** Enemies spawn in waves and move toward the train.
 
@@ -502,7 +548,7 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 
 ---
 
-### Task 8 — Projectile System
+### Task 9 — Projectile System
 
 **Description:** Projectiles from cars that travel and hit enemies.
 
@@ -527,7 +573,7 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 
 ---
 
-### Task 9 — Damage, Death & XP
+### Task 10 — Damage, Death & XP
 
 **Description:** Enemies die when health reaches zero, dropping XP/money. Train dies when health reaches zero.
 
@@ -554,7 +600,7 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 
 ---
 
-### Task 10 — Upgrade Picker
+### Task 11 — Upgrade Picker
 
 **Description:** When player earns enough XP, present upgrade choices.
 
@@ -581,7 +627,7 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 
 ---
 
-### Task 11 — Chest Drops
+### Task 12 — Chest Drops
 
 **Description:** Special enemies drop chests with pre-selected rewards.
 
@@ -604,7 +650,7 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 
 ---
 
-### Task 12 — Save System
+### Task 13 — Save System
 
 **Description:** Save and load full game state.
 
@@ -629,7 +675,7 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 
 ---
 
-### Task 13 — Settings
+### Task 14 — Settings
 
 **Description:** Settings management split between machine-specific and universal.
 
@@ -653,7 +699,7 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 
 ---
 
-### Task 14 — UI Overlay & Story Text
+### Task 15 — UI Overlay & Story Text
 
 **Description:** HUD, upgrade picker UI, story text delivery, translation-ready text system. V1 story is flavor lines only (no narrative beats).
 
@@ -679,7 +725,7 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 
 ---
 
-### Task 15 — Audio
+### Task 16 — Audio
 
 **Description:** Basic sound effects for key events.
 
@@ -702,7 +748,7 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 
 ---
 
-### Task 16 — Build Targets
+### Task 17 — Build Targets
 
 **Description:** Configure Godot export presets for macOS, Linux, Windows, and WASM.
 
@@ -732,7 +778,7 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 
 ---
 
-### Task 17 — CI/CD Pipeline
+### Task 18 — CI/CD Pipeline
 
 **Description:** GitHub Actions for automated builds and WASM auto-deploy to GitHub Pages.
 
@@ -761,7 +807,7 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 
 ---
 
-### Task 18 — Polish Pass (Ongoing)
+### Task 19 — Polish Pass (Ongoing)
 
 **Description:** Code cleanup, refactoring for clarity, performance measurements, Godot version bump, friend playtesting feedback.
 
@@ -803,17 +849,18 @@ along a radius-32 arc edge-to-edge. The shared edges are the gluing points.
 | 4b   | Track Path Builder              | 4a         | Yes (GUT: path geometry, continuity)          |
 | 4c   | Renderer Update                 | 4a         | Yes (GUT: renderer integration)               |
 | 4d   | Train Migration to PathFollow2D | 4b, 4c     | Yes (GUT: mode-switch invariant, coupling)    |
-| 5    | Train controls (G.U.I.D.E)      | 4a         | Yes (manual)                                  |
-| 6    | Car auto-fire                   | 2, 4       | Yes (GUT)                                     |
-| 7    | Enemy spawning                  | 2          | Yes (GUT + manual)                            |
-| 8    | Projectiles                     | 2, 6       | Yes (GUT)                                     |
-| 9    | Damage & XP                     | 2, 7, 8    | Yes (GUT)                                     |
-| 10   | Upgrade picker                  | 9          | Yes (GUT)                                     |
-| 11   | Chest drops                     | 7, 10      | Yes (GUT)                                     |
-| 12   | Save system                     | 9, 10      | Yes (GUT)                                     |
-| 13   | Settings                        | 12         | Yes (GUT)                                     |
-| 14   | UI & story                      | 4, 6, 10   | Partial (GUT for text keys)                   |
-| 15   | Audio                           | 14         | No (manual)                                   |
-| 16   | Build targets                   | 15         | Yes (headless export)                         |
-| 17   | CI/CD pipeline                  | 16         | Yes (CI runs)                                 |
-| 18   | Polish (ongoing)                | 1-17       | No (refactoring)                              |
+| 5    | Train demo track & controls     | 4d         | Yes (GUT + manual)                            |
+| 6    | Switch to G.U.I.D.E input       | 5          | Yes (manual)                                  |
+| 7    | Car auto-fire                   | 2, 5       | Yes (GUT)                                     |
+| 8    | Enemy spawning                  | 2          | Yes (GUT + manual)                            |
+| 9    | Projectiles                     | 2, 7       | Yes (GUT)                                     |
+| 10   | Damage & XP                     | 2, 8, 9    | Yes (GUT)                                     |
+| 11   | Upgrade picker                  | 10         | Yes (GUT)                                     |
+| 12   | Chest drops                     | 8, 10      | Yes (GUT)                                     |
+| 13   | Save system                     | 10, 11     | Yes (GUT)                                     |
+| 14   | Settings                        | 13         | Yes (GUT)                                     |
+| 15   | UI & story                      | 5, 7, 11   | Partial (GUT for text keys)                   |
+| 16   | Audio                           | 15         | No (manual)                                   |
+| 17   | Build targets                   | 16         | Yes (headless export)                         |
+| 18   | CI/CD pipeline                  | 17         | Yes (CI runs)                                 |
+| 19   | Polish (ongoing)                | 1-18       | No (refactoring)                              |
