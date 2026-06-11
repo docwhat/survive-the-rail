@@ -4,6 +4,12 @@ extends Node2D
 ## TrackLay -> Playing -> Upgrading -> GameOver
 ## Input abstraction via InputManager (G.U.I.D.E-style).
 
+const INITIAL_SPEED: float = 6.4
+## Starting speed in world units per second.
+
+const DECK_TRACK_LENGTH: float = 640.0
+## Approximate length of the demo track in world units.
+
 var train: Train = null
 var track: Track = null
 
@@ -13,6 +19,9 @@ var train_renderer: Control = null
 var track_renderer: Control = null
 var ui_renderer: CanvasLayer = null
 
+var is_reverse_mode: bool = false
+## Visual indicator for reverse mode display.
+
 
 func _ready() -> void:
 	# Initialize input manager
@@ -20,7 +29,7 @@ func _ready() -> void:
 
 	# Initialize data models
 	train = Train.new()
-	train.initialize(100.0, 200.0, 100.0, 100.0, 10.0, 0.0, 0)
+	train.initialize(200.0, 200.0, 100.0, 100.0, 10.0, INITIAL_SPEED, 0)
 	train.enabled = true
 	# Add some cars for visual interest and pivot demonstration
 	var car1 = Car.new()
@@ -43,43 +52,83 @@ func _ready() -> void:
 	track_renderer = $TrackRenderer as Control
 	ui_renderer = $UIDisplay as CanvasLayer
 
+	# Build path for the train to follow
+	_build_demo_path()
+
 
 func _place_initial_track() -> void:
-	# Place a track with straights and a curve:
-	# Row 0: straight segments (0,0) → (1,0) → (2,0)
-	# Curve at (3,0): turns DOWN from RIGHT
-	# Vertical down: (3,1), (3,2)
-
-	# Horizontal straights
-	var seg0 = track.create_straight_segment(Vector2i.ZERO, true)
-	track.try_place_segment(Vector2i.ZERO, seg0)
+	# Build a demo track with straights, a curve, and a crossing:
+	#
+	#  (3,0) ─── (2,0) ─── (1,0) ─── (0,0)     <-- horizontal straights (start at 0,0)
+	#      │
+	#  (3,1)     (4,1)
+	#      │         ─── (5,1) ─── (6,1) ─── (7,1)  <-- horizontal after crossing
+	#
+	# Horizontal straights (leftward direction)
+	var seg0 = track.create_straight_segment(Vector2i(0, 0), true)
+	track.try_place_segment(Vector2i(0, 0), seg0)
 	var seg1 = track.create_straight_segment(Vector2i(1, 0), true)
 	track.try_place_segment(Vector2i(1, 0), seg1)
 	var seg2 = track.create_straight_segment(Vector2i(2, 0), true)
 	track.try_place_segment(Vector2i(2, 0), seg2)
 
-	# Curve segment: connects LEFT (incoming) → DOWN (outgoing)
+	# Curve at (3,0): connects LEFT (incoming from (2,0)) → DOWN (outgoing)
 	var seg3 = track.create_curve_segment(Vector2i(3, 0), [Vector2i.LEFT, Vector2i.DOWN])
 	track.try_place_segment(Vector2i(3, 0), seg3)
 
-	# Vertical straights after the curve
+	# Vertical straight after the curve: (3,1)
 	var seg4 = track.create_straight_segment(Vector2i(3, 1), true)
 	track.try_place_segment(Vector2i(3, 1), seg4)
-	var seg5 = track.create_straight_segment(Vector2i(3, 2), true)
+
+	# Crossing segment at (3,2): connects DOWN (incoming) → RIGHT (outgoing)
+	# This is a "crossing" type — modeled as a curve segment with DOWN→RIGHT
+	var seg5 = track.create_curve_segment(Vector2i(3, 2), [Vector2i.DOWN, Vector2i.RIGHT])
 	track.try_place_segment(Vector2i(3, 2), seg5)
+
+	# Horizontal straights after the crossing: (4,2), (5,2), (6,2)
+	var seg6 = track.create_straight_segment(Vector2i(4, 2), true)
+	track.try_place_segment(Vector2i(4, 2), seg6)
+	var seg7 = track.create_straight_segment(Vector2i(5, 2), true)
+	track.try_place_segment(Vector2i(5, 2), seg7)
+	var seg8 = track.create_straight_segment(Vector2i(6, 2), true)
+	track.try_place_segment(Vector2i(6, 2), seg8)
+
+
+func _build_demo_path() -> void:
+	## Build a Path2D for the demo track so the train can follow it.
+	## The path uses the segments already placed by _place_initial_track.
+	var builder: TrackPathBuilder = TrackPathBuilder.new()
+	var path: Path2D = builder.build_full_path(track._data_table, track._segment_table)
+	if path != null and path.get_child_count() > 0:
+		train.set_path(path, track)
+		train._has_path = true
+
+	## Compute the train's current position on the new path.
+	train._compute_path_progress_from_position(track)
 
 
 func _process(delta: float) -> void:
 	if train == null or track == null:
 		return
 
+	# Check reverse toggle key (R)
+	var reverse_toggle: bool = Input.is_action_just_pressed("reverse_toggle")
+
 	# Update input from manager
 	var throttle: bool = input_manager.get_throttle()
 	var brake: bool = input_manager.get_brake()
-	train.update_input(throttle, brake)
+	train.update_input(throttle, brake, reverse_toggle)
 	train.update_speed(delta)
-	train.update_position(track, delta)
+
+	# Use path follower mode if available
+	if train.is_using_path_follower():
+		train.update_position_path_follower(delta)
+	else:
+		train.update_position(track, delta)
 	train.update_orientation(track)
+
+	# Update reverse mode indicator
+	is_reverse_mode = train.is_in_reverse()
 
 	# Camera offset: center on train
 	var viewport_size: Vector2 = get_viewport_rect().size

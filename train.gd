@@ -62,6 +62,10 @@ var cars: Array = []
 var enabled: bool = false
 ## When false, the train doesn't respond to input (e.g. game-over).
 
+var is_reversed: bool = false
+## When true, the train moves backward along the path. Toggle with 'R' key
+## only when speed is zero.
+
 ## --- Path Follower State (Task 4d) ---
 
 var _path_follower: TrainPathFollower = null
@@ -195,8 +199,12 @@ func update_position_path_follower(delta: float) -> void:
 	var distance: float = speed * delta
 	var total_length: float = _path_follower._total_path_length
 
-	# Advance progress
-	var current_progress: float = _path_follower.get_progress() + distance
+	# Advance or retreat based on reverse mode
+	var current_progress: float = _path_follower.get_progress()
+	if is_reversed:
+		current_progress -= distance
+	else:
+		current_progress += distance
 
 	# Clamp to path bounds
 	current_progress = clampf(current_progress, 0.0, total_length)
@@ -426,11 +434,16 @@ func is_destroyed() -> bool:
 ## Call from _input() or from an input handler.
 ## @param is_throttle_pressed: Whether throttle input is active
 ## @param is_brake_pressed: Whether brake input is active
-func update_input(is_throttle_pressed: bool, is_brake_pressed: bool) -> void:
+## @param reverse_just_pressed: Whether reverse toggle was just pressed
+func update_input(is_throttle_pressed: bool, is_brake_pressed: bool, reverse_just_pressed: bool = false) -> void:
 	if not enabled:
 		return
 	is_throttling = is_throttle_pressed
 	is_braking = is_brake_pressed
+
+	## Toggle reverse mode only when stopped.
+	if reverse_just_pressed and speed == 0.0:
+		is_reversed = !is_reversed
 
 ## --- Car Management ---
 
@@ -558,6 +571,7 @@ func get_state() -> Dictionary:
 		"using_path_follower": _has_path,
 		"progress": get_progress(),
 		"car_coupling_offsets": _coupling_offsets.duplicate(),
+		"is_reversed": is_reversed,
 	}
 	return state
 
@@ -755,3 +769,8 @@ func _bezier_midpoint(p0: Vector2, p1: Vector2, p2: Vector2) -> Vector2:
 	var x: float = (1 - t) * (1 - t) * p0.x + 2 * (1 - t) * t * p1.x + t * t * p2.x
 	var y: float = (1 - t) * (1 - t) * p0.y + 2 * (1 - t) * t * p1.y + t * t * p2.y
 	return Vector2(x, y)
+
+
+## Check if the train is in reverse mode.
+func is_in_reverse() -> bool:
+	return is_reversed

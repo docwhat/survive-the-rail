@@ -9,6 +9,7 @@ extends Node
 
 const THROTTLE_ACTION: String = "throttle"
 const BRAKE_ACTION: String = "brake"
+const REVERSE_TOGGLE_ACTION: String = "reverse_toggle"
 
 
 func _ready() -> void:
@@ -16,3 +17,5 @@ func _ready() -> void:
 		InputMap.add_action(THROTTLE_ACTION)
 	if not InputMap.has_action(BRAKE_ACTION):
 		InputMap.add_action(BRAKE_ACTION)
+	if not InputMap.has_action(REVERSE_TOGGLE_ACTION):
+		InputMap.add_action(REVERSE_TOGGLE_ACTION)

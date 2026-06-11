@@ -5,6 +5,7 @@ var label_speed: Label = null
 var label_health: Label = null
 var label_resources: Label = null
 var label_phase: Label = null
+var label_reverse: Label = null
 var health_bar: ProgressBar = null
 
 
@@ -14,6 +15,7 @@ func _ready() -> void:
 	label_health = $HealthLabel as Label
 	label_resources = $ResourcesLabel as Label
 	label_phase = $PhaseLabel as Label
+	label_reverse = $ReverseLabel as Label
 	health_bar = $HealthBar as ProgressBar
 
 
@@ -39,3 +41,10 @@ func update(train: Train, track: Track) -> void:
 	# Phase indicator
 	if label_phase != null:
 		label_phase.text = "Phase: PLAYING"
+
+	# Reverse mode indicator
+	if label_reverse != null and train != null:
+		if train.is_in_reverse():
+			label_reverse.text = "*** REVERSE MODE ***"
+		else:
+			label_reverse.text = ""

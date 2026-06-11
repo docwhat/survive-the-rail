@@ -589,3 +589,64 @@ func test_update_orientation_straight_horizontal_is_zero() -> void:
 	var track = _make_dummy_track()
 	var angle: float = train.update_orientation(track)
 	assert_float(angle).is_equal_approx(0.0, 0.001)
+
+# ============================================================================
+# Reverse Mode
+# ============================================================================
+
+
+## A new train starts in forward mode (is_reversed = false).
+func test_reverse_mode_starts_false():
+	var train = _make_train()
+	assert_bool(train.is_reversed).is_false()
+	assert_bool(train.is_in_reverse()).is_false()
+
+
+## Reverse toggle with speed == 0 toggles is_reversed.
+func test_reverse_toggle_toggles_when_stopped():
+	var train = _make_train()
+	train.enabled = true
+	train.update_input(false, false, true) # reverse_just_pressed = true
+	assert_bool(train.is_reversed).is_true()
+	train.update_input(false, false, true) # toggle again
+	assert_bool(train.is_reversed).is_false()
+
+
+## Reverse toggle has no effect when speed > 0.
+func test_reverse_toggle_ignored_when_moving():
+	var train = _make_train()
+	train.enabled = true
+	train.update_input(true, false) # throttle
+	train.update_speed(1.0) # speed is now > 0
+	train.update_input(false, false, true) # reverse_toggle should be ignored
+	assert_bool(train.is_reversed).is_false()
+
+
+## Reverse toggle in disabled train is ignored.
+func test_reverse_toggle_disabled_train_ignored():
+	var train = _make_train()
+	train.enabled = false
+	train.update_input(false, false, true)
+	assert_bool(train.is_reversed).is_false()
+
+
+## Reverse toggle in get_state captures is_reversed.
+func test_get_state_captures_reverse_mode():
+	var train = _make_train()
+	train.enabled = true
+	train.update_input(false, false, true) # toggle reverse
+	var state: Dictionary = train.get_state()
+	assert_bool(state["is_reversed"]).is_true()
+
+
+## After reverse toggle, train can move backward.
+func test_reverse_mode_allows_backward_movement():
+	var train = _make_train()
+	train.enabled = true
+	train.update_input(false, false, true) # toggle reverse
+	assert_bool(train.is_reversed).is_true()
+	assert_float(train.speed).is_equal_approx(0.0, 0.001)
+	# Now throttle should move it (speed increases, position goes backward in reverse)
+	train.update_input(true, false) # throttle = move backward in reverse
+	train.update_speed(1.0)
+	assert_float(train.speed).is_equal_approx(20.0, 0.001)
