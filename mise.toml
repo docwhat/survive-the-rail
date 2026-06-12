@@ -7,13 +7,14 @@ description = "Clean all exported builds and other cruft"
 run = "rm -rf build"
 
 [tasks.check]
+alias = "lint"
 description = "Check code for lint or static analysis issues"
 run = "trunk check"
 
 [tasks.fix]
-alias = "fmt"
-description = "Fix code style issues"
-run = "trunk fix"
+alias = "format"
+description = "Fix formatting issues"
+run = "trunk fmt"
 
 [tasks.game]
 description = "Run the game"
