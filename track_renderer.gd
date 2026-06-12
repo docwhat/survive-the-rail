@@ -71,21 +71,21 @@ func _draw() -> void:
 		_draw_grid(center)
 
 	# Draw all segments from the data model
-	var all_seg_ids: Array = track._segment_table.get_all_ids()
+	var all_seg_ids: Array = track.get_all_segment_ids()
 	for seg_id in all_seg_ids:
-		var type_id: int = track._segment_table.get_segment_type(seg_id)
-		var orientation: int = track._segment_table.get_orientation(seg_id)
-		var cells: Array[Vector2i] = track._data_table.get_cells_by_segment_id(seg_id)
+		var type_id: int = track.get_segment_type_by_id(seg_id)
+		var orientation: int = track.get_segment_orientation_by_id(seg_id)
+		var cells: Array[Vector2i] = track.get_cells_by_segment_id(seg_id)
 		if cells.size() == 0:
 			continue
 
 		_draw_segment_from_data(cells, type_id, orientation, center)
 
 	# Draw start marker on first segment
-	if track._segment_table.get_count() > 0:
-		var first_id: int = track._segment_table.get_all_ids()[0]
-		var first_type: int = track._segment_table.get_segment_type(first_id)
-		var first_cells: Array[Vector2i] = track._data_table.get_cells_by_segment_id(first_id)
+	if track.get_segment_count() > 0:
+		var first_id: int = track.get_all_segment_ids()[0]
+		var first_type: int = track.get_segment_type_by_id(first_id)
+		var first_cells: Array[Vector2i] = track.get_cells_by_segment_id(first_id)
 		if first_cells.size() > 0:
 			var screen_center: Vector2 = first_cells[0] as Vector2 * Track.CELL_SIZE - center
 			draw_circle(screen_center, 8.0, START_MARKER)

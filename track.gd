@@ -179,6 +179,33 @@ func get_segments() -> Array[TrackSegment]:
 		result.append(seg)
 	return result
 
+
+## Get all segment IDs for rendering.
+## @return Array of all segment IDs in the track.
+func get_all_segment_ids() -> Array:
+	return _segment_table.get_all_ids()
+
+
+## Get segment type by ID.
+## @param seg_id: The segment ID.
+## @return The type ID for this segment.
+func get_segment_type_by_id(seg_id: int) -> int:
+	return _segment_table.get_segment_type(seg_id)
+
+
+## Get segment orientation by ID.
+## @param seg_id: The segment ID.
+## @return The orientation for this segment.
+func get_segment_orientation_by_id(seg_id: int) -> int:
+	return _segment_table.get_orientation(seg_id)
+
+
+## Get cells for a segment by ID.
+## @param seg_id: The segment ID.
+## @return Array of cell positions for this segment.
+func get_cells_by_segment_id(seg_id: int) -> Array[Vector2i]:
+	return _data_table.get_cells_by_segment_id(seg_id)
+
 # ============================================================================
 # Helper methods for data model integration
 # ============================================================================
@@ -286,3 +313,10 @@ func _get_valid_connections(type_id: int, orientation: int) -> Array[Vector2i]:
 func _is_entrance_pair_match(type_id: int, orientation: int, dir: Vector2i) -> bool:
 	var valid_conns: Array[Vector2i] = _get_valid_connections(type_id, orientation)
 	return valid_conns.has(dir)
+
+
+## Build a Path2D from the current track data model.
+## @return A Path2D containing all segment geometries, or null if empty.
+func build_path() -> Path2D:
+	var builder: TrackPathBuilder = TrackPathBuilder.new()
+	return builder.build_full_path(_data_table, _segment_table)

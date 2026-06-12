@@ -56,6 +56,12 @@ func get_progress_offset() -> float:
 	return _progress_offset
 
 
+## Get the total path length.
+## @return Cached total length of the path.
+func get_total_path_length() -> float:
+	return _total_path_length
+
+
 ## Set the progress offset.
 ## @param offset: Offset value to set (positive = behind engine).
 func set_progress_offset(offset: float) -> void:

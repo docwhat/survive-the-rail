@@ -96,15 +96,8 @@ func _place_initial_track() -> void:
 
 func _build_demo_path() -> void:
 	## Build a Path2D for the demo track so the train can follow it.
-	## The path uses the segments already placed by _place_initial_track.
-	var builder: TrackPathBuilder = TrackPathBuilder.new()
-	var path: Path2D = builder.build_full_path(track._data_table, track._segment_table)
-	if path != null and path.get_child_count() > 0:
-		train.set_path(path, track)
-		train._has_path = true
-
-	## Compute the train's current position on the new path.
-	train._compute_path_progress_from_position(track)
+	## Uses public Track/Train APIs instead of private members.
+	train.load_track_path(track)
 
 
 func _process(delta: float) -> void:

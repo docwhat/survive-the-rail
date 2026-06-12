@@ -60,6 +60,12 @@ func get_angle() -> float:
 	return _path_follow.rotation
 
 
+## Get the total path length.
+## @return Cached total length of the path.
+func get_total_path_length() -> float:
+	return _total_path_length
+
+
 ## Replace the underlying path, preserving progress proportionally.
 ## @param new_path: The new Path2D to follow.
 func update_path(new_path: Path2D) -> void:

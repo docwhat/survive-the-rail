@@ -197,7 +197,7 @@ func update_position_path_follower(delta: float) -> void:
 
 	# Distance to move this frame
 	var distance: float = speed * delta
-	var total_length: float = _path_follower._total_path_length
+	var total_length: float = _path_follower.get_total_path_length()
 
 	# Advance or retreat based on reverse mode
 	var current_progress: float = _path_follower.get_progress()
@@ -585,8 +585,7 @@ func is_using_path_follower() -> bool:
 ## @param track: The Track data model to build the path from.
 func switch_to_path_mode(track_model: Track) -> void:
 	# Build the path using the path builder
-	var builder: TrackPathBuilder = TrackPathBuilder.new()
-	var path: Path2D = builder.build_full_path(track_model._data_table, track_model._segment_table)
+	var path: Path2D = track_model.build_path()
 	set_path(path, track_model)
 	_has_path = true
 
@@ -625,6 +624,20 @@ func set_path_progress(progress: float) -> void:
 				_car_followers[i].set_base_progress(
 					_path_follower.get_progress() - _coupling_offsets[i],
 				)
+
+
+## Build a path from the track data model and set up path followers.
+## This is the public replacement for calling set_path + _has_path + _compute_path_progress_from_position.
+## @param track_model: The Track data model to build the path from.
+## @return True if a path was built, false if the track is empty.
+func load_track_path(track_model: Track) -> bool:
+	var path: Path2D = track_model.build_path()
+	if path == null or path.get_child_count() == 0:
+		return false
+	set_path(path, track_model)
+	_has_path = true
+	_compute_path_progress_from_position(track_model)
+	return true
 
 
 ## Compute the train's progress along the path from its current world position.
@@ -680,7 +693,7 @@ func _find_closest_path_progress(path: Path2D) -> float:
 func _compute_path_total_length(path_follower: TrainPathFollower) -> float:
 	if path_follower == null:
 		return 0.0
-	return path_follower._total_path_length
+	return path_follower.get_total_path_length()
 
 
 ## Compute total path length from a Path2D node.
