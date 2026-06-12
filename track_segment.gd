@@ -12,15 +12,21 @@ var grid_position: Vector2i
 ## Directions this segment connects to, pointing toward connected neighbors.
 ## For straight: two opposite directions (e.g., RIGHT and LEFT).
 ## For curve: two adjacent directions (e.g., RIGHT and DOWN).
+## For crossing: four directions (UP, DOWN, LEFT, RIGHT).
 var connections: Array[Vector2i]
+## Optional base type for segments with ambiguous connections (e.g., 1x1 vs 2x2 curves).
+## When set, this overrides the auto-detected type in _connections_to_type_and_orientation.
+var base_type: int = -1
 
 
 ## Create a new track segment.
 ## @param position: Grid cell position (Vector2i)
 ## @param conns: Array of direction vectors pointing to connected neighbors
-func initialize(position: Vector2i, conns: Array[Vector2i]) -> void:
+## @param base_type: Optional base type to override auto-detection (e.g., CURVE_2X2)
+func initialize(position: Vector2i, conns: Array[Vector2i], base_type: int = -1) -> void:
 	grid_position = position
 	connections = conns
+	self.base_type = base_type
 
 
 ## Check if this segment connects to a neighbor in the given direction.

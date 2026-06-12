@@ -632,11 +632,14 @@ func set_path_progress(progress: float) -> void:
 ## @return True if a path was built, false if the track is empty.
 func load_track_path(track_model: Track) -> bool:
 	var path: Path2D = track_model.build_path()
-	if path == null or path.get_child_count() == 0:
+	if path == null or path.curve == null or path.curve.get_point_count() == 0:
 		return false
 	set_path(path, track_model)
 	_has_path = true
 	_compute_path_progress_from_position(track_model)
+	# Snap train position to the path so it's visible on the track
+	if _path_follower != null:
+		position = _path_follower.get_position()
 	return true
 
 
@@ -645,9 +648,9 @@ func load_track_path(track_model: Track) -> bool:
 func _compute_path_progress_from_position(track_model: Track) -> void:
 	if _path_follower == null:
 		return
-	var pf_node: PathFollow2D = _path_follower.get_path_follow_node()
-	var path: Path2D = pf_node.path
-	if path == null:
+	# Get path from the Track model (PathFollow2D.path is an enum in Godot 4)
+	var path: Path2D = track_model.build_path()
+	if path == null or path.curve == null:
 		return
 
 	# Find the closest point on the path to the train's position
@@ -666,7 +669,11 @@ func _compute_segment_state_from_position(track_model: Track) -> void:
 	var closest_seg: int = _find_closest_segment(track_model)
 	segment_index = closest_seg
 	segment_progress = 0.0
-	position = track_model.get_segment_position(closest_seg)
+	var segments: Array[TrackSegment] = track_model.get_segments()
+	if closest_seg >= 0 and closest_seg < segments.size():
+		var grid_pos: Vector2 = Vector2(segments[closest_seg].grid_position)
+		var offset: float = float(Track.CELL_SIZE) / 2.0
+		position = grid_pos * Track.CELL_SIZE + Vector2(offset, offset)
 
 
 ## Find the path progress value closest to a world position using Curve2D.
@@ -708,8 +715,10 @@ func _find_closest_segment(track_model: Track) -> int:
 
 	var best_dist: float = INF
 	var best_idx: int = 0
+	var offset: float = float(Track.CELL_SIZE) / 2.0
 	for i in range(segments.size()):
-		var seg_pos: Vector2 = track_model.get_segment_position(i)
+		var grid_pos: Vector2 = Vector2(segments[i].grid_position)
+		var seg_pos: Vector2 = grid_pos * Track.CELL_SIZE + Vector2(offset, offset)
 		var d: float = position.distance_to(seg_pos)
 		if d < best_dist:
 			best_dist = d

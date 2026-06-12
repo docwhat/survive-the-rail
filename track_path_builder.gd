@@ -314,8 +314,10 @@ func _build_curve_direct(curve: Curve2D, cells: Array[Vector2i], type_id: int, o
 
 
 ## Build a crossing segment's points into the shared Curve2D.
+## For a crossing, we only add the center point — the curve interpolates
+## a straight path through it from the previous segment's exit to the next.
 func _build_crossing_direct(curve: Curve2D, cells: Array[Vector2i], orientation: int) -> void:
-	if cells.size() != 5:
+	if cells.size() < 1:
 		return
 
 	var center_cell: Vector2i = _find_crossing_center(cells)
@@ -324,12 +326,6 @@ func _build_crossing_direct(curve: Curve2D, cells: Array[Vector2i], orientation:
 
 	var center_pos: Vector2 = _cell_center(center_cell)
 	curve.add_point(center_pos)
-
-	var directions: Array[Vector2i] = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
-	for dir in directions:
-		var neighbor: Vector2i = center_cell + dir
-		if cells.has(neighbor):
-			curve.add_point(_cell_center(neighbor))
 
 # ============================================================================
 # Helper methods
@@ -341,17 +337,19 @@ func _cell_center(cell: Vector2i) -> Vector2:
 	return Vector2(float(cell.x) * CELL_SIZE + CELL_SIZE / 2.0, float(cell.y) * CELL_SIZE + CELL_SIZE / 2.0)
 
 
-## Get the entry or exit direction for a curve.
+## Get the entry or exit point offset for a curve, in world units.
+## Returns the offset from the curve's center to the entry/exit edge.
 func _curve_entry_exit_1x1(orientation: int, is_entry: bool) -> Vector2:
+	var half: float = CELL_SIZE / 2.0
 	match orientation:
 		0: # LEFT-UP
-			return Vector2(-1.0, -1.0) if is_entry else Vector2(-1.0, -1.0)
+			return Vector2(-half, 0) if is_entry else Vector2(0, -half)
 		1: # LEFT-DOWN
-			return Vector2(-1.0, -1.0) if is_entry else Vector2(-1.0, -1.0)
+			return Vector2(-half, 0) if is_entry else Vector2(0, half)
 		2: # RIGHT-UP
-			return Vector2(1.0, -1.0) if is_entry else Vector2(1.0, -1.0)
+			return Vector2(half, 0) if is_entry else Vector2(0, -half)
 		3: # RIGHT-DOWN
-			return Vector2(1.0, -1.0) if is_entry else Vector2(1.0, -1.0)
+			return Vector2(half, 0) if is_entry else Vector2(0, half)
 		_:
 			return Vector2.ZERO
 

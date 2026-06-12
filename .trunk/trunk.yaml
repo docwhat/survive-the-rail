@@ -58,15 +58,6 @@ lint:
           parser:
             runtime: python
             run: python3 ${workspace}/parse_gdscript_formatter_to_sarif.py ${exit_code}
-          #output: regex
-          # bad.gd:15:unused-argument:warning: Function argument 'argument' is unused. Consider removing it or prefixing with '_'
-          # bad.gd:589:private-access:error: Private variable '_data_table' should not be accessed from outside its class
-          # bad.gd:438:max-line-length:warning: Line is too long. Found 113 characters, maximum allowed is 100
-          #parse_regex: ((?P<path>[^:]+):(?P<line>\d+):(?P<code>[^:]+):(?P<severity>[^:]+):\s*(?P<message>.*))
-          #parse_regex: "((?P<path>[^:]+):(?P<line>\\d+):(?P<code>[^:]+):(?P<severity>[^:]+):\\s*(?P<message>.*))"
-          #parser:
-          #  run: cat
-
         - name: format
           output: rewrite
           formatter: true
@@ -81,6 +72,7 @@ actions:
   enabled:
     - commitlint
     - trunk-announce
+    - trunk-check-pre-commit
     - trunk-check-pre-push
     - trunk-fmt-pre-commit
     - trunk-upgrade-available

@@ -57,41 +57,47 @@ func _ready() -> void:
 
 
 func _place_initial_track() -> void:
-	# Build a demo track with straights, a curve, and a crossing:
+	# Demo track layout (all segment types represented):
 	#
-	#  (3,0) ─── (2,0) ─── (1,0) ─── (0,0)     <-- horizontal straights (start at 0,0)
-	#      │
-	#  (3,1)     (4,1)
-	#      │         ─── (5,1) ─── (6,1) ─── (7,1)  <-- horizontal after crossing
+	#  seg0: STRAIGHT_H at (0,0)    ─ exits RIGHT
+	#  seg1: CURVE_2X2 at (1,0)     ─ occupies (1,0),(2,0),(1,1),(2,1), enters LEFT, exits DOWN
+	#  seg2: STRAIGHT_V at (1,2)    ─ enters UP, exits DOWN
+	#  seg3: CURVE_1X1 at (1,3)     ─ enters DOWN, exits RIGHT
+	#  seg4: CROSSING_90 at (3,3)   ─ enters LEFT, exits RIGHT
+	#  seg5: STRAIGHT_H at (5,3)    ─ continues RIGHT
 	#
-	# Horizontal straights (leftward direction)
+	# Grid layout (x increases right, y increases down):
+	#  y=0: (0,0)── (1,0)(2,0)  ← seg0 → seg1 (2x2 block)
+	#  y=1:       (1,1)(2,1)
+	#  y=2: (1,2)     (3,2)     ← seg2 → seg4 (crossing up arm)
+	#  y=3: (1,3)── (2,3)(3,3)(4,3)── (5,3)  ← seg3 → seg4 → seg5
+	#  y=4:       (3,4)          ← seg4 (crossing down arm)
+	#
+	# seg0: Horizontal straight at (0,0), exits RIGHT
 	var seg0 = track.create_straight_segment(Vector2i(0, 0), true)
 	track.try_place_segment(Vector2i(0, 0), seg0)
-	var seg1 = track.create_straight_segment(Vector2i(1, 0), true)
+
+	# seg1: 2x2 curve at (1,0), occupies (1,0),(2,0),(1,1),(2,1)
+	# enters LEFT from seg0's RIGHT exit, exits DOWN
+	var seg1 = track.create_curve_2x2_segment(Vector2i(1, 0), [Vector2i.LEFT, Vector2i.DOWN])
 	track.try_place_segment(Vector2i(1, 0), seg1)
-	var seg2 = track.create_straight_segment(Vector2i(2, 0), true)
-	track.try_place_segment(Vector2i(2, 0), seg2)
 
-	# Curve at (3,0): connects LEFT (incoming from (2,0)) → DOWN (outgoing)
-	var seg3 = track.create_curve_segment(Vector2i(3, 0), [Vector2i.LEFT, Vector2i.DOWN])
-	track.try_place_segment(Vector2i(3, 0), seg3)
+	# seg2: Vertical straight at (1,2), continues DOWN from 2x2 curve
+	var seg2 = track.create_straight_segment(Vector2i(1, 2), false)
+	track.try_place_segment(Vector2i(1, 2), seg2)
 
-	# Vertical straight after the curve: (3,1)
-	var seg4 = track.create_straight_segment(Vector2i(3, 1), true)
-	track.try_place_segment(Vector2i(3, 1), seg4)
+	# seg3: 1x1 curve at (1,3), enters DOWN from seg2, exits RIGHT
+	var seg3 = track.create_curve_segment(Vector2i(1, 3), [Vector2i.DOWN, Vector2i.RIGHT])
+	track.try_place_segment(Vector2i(1, 3), seg3)
 
-	# Crossing segment at (3,2): connects DOWN (incoming) → RIGHT (outgoing)
-	# This is a "crossing" type — modeled as a curve segment with DOWN→RIGHT
-	var seg5 = track.create_curve_segment(Vector2i(3, 2), [Vector2i.DOWN, Vector2i.RIGHT])
-	track.try_place_segment(Vector2i(3, 2), seg5)
+	# seg4: Crossing at (3,3) occupies 5 cells
+	# enters LEFT from seg3's RIGHT exit, exits RIGHT
+	var seg4 = track.create_crossing_segment(Vector2i(3, 3))
+	track.try_place_segment(Vector2i(3, 3), seg4)
 
-	# Horizontal straights after the crossing: (4,2), (5,2), (6,2)
-	var seg6 = track.create_straight_segment(Vector2i(4, 2), true)
-	track.try_place_segment(Vector2i(4, 2), seg6)
-	var seg7 = track.create_straight_segment(Vector2i(5, 2), true)
-	track.try_place_segment(Vector2i(5, 2), seg7)
-	var seg8 = track.create_straight_segment(Vector2i(6, 2), true)
-	track.try_place_segment(Vector2i(6, 2), seg8)
+	# seg5: Horizontal straight at (5,3), continues RIGHT from crossing
+	var seg5 = track.create_straight_segment(Vector2i(5, 3), true)
+	track.try_place_segment(Vector2i(5, 3), seg5)
 
 
 func _build_demo_path() -> void:
