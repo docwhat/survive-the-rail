@@ -17,13 +17,10 @@ func teardown() -> void:
 ## Helper to try creating InputManager (fails gracefully in headless).
 func _try_create_input_manager() -> Variant:
 	var result = null
-	# Attempt to instantiate; silently fails if class not indexed in headless
-	result = ClassDB.instantiate("InputManager")
-	if result == null:
-		# Class not registered; try load as fallback
-		var res = load("res://input_manager.gd")
-		if res != null:
-			result = res.new()
+	# Attempt to load and instantiate; fails silently if script unavailable
+	var res = load("res://input_manager.gd")
+	if res != null:
+		result = res.new()
 	return result
 
 

@@ -92,28 +92,9 @@ func update_path(new_path: Path2D) -> void:
 	_path_follow.progress = old_ratio * _total_path_length
 
 
-## Compute the total length of a Path2D by summing its segments.
+## Compute the total length of a Path2D using its Curve2D.
 func _compute_path_length(path: Path2D) -> float:
-	var total: float = 0.0
-	for child in path.get_children():
-		var child_class: String = child.get_class()
-		if child_class == "PathSegLine":
-			var a: Vector2 = child.get_point_a()
-			var b: Vector2 = child.get_point_b()
-			total += a.distance_to(b)
-		elif child_class == "PathSegCurve2D":
-			var a: Vector2 = child.get_point_a()
-			var b: Vector2 = child.get_point_b()
-			var c: Vector2 = child.get_point_c()
-			# Approximate Bezier curve length with midpoint
-			var mid: Vector2 = _bezier_midpoint(a, b, c)
-			total += a.distance_to(mid) + mid.distance_to(c)
-	return total
-
-
-## Compute the midpoint of a quadratic Bezier curve.
-func _bezier_midpoint(p0: Vector2, p1: Vector2, p2: Vector2) -> Vector2:
-	var t: float = 0.5
-	var x: float = (1 - t) * (1 - t) * p0.x + 2 * (1 - t) * t * p1.x + t * t * p2.x
-	var y: float = (1 - t) * (1 - t) * p0.y + 2 * (1 - t) * t * p1.y + t * t * p2.y
-	return Vector2(x, y)
+	var curve: Curve2D = path.curve
+	if curve == null:
+		return 0.0
+	return curve.get_baked_length()

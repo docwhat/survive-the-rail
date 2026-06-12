@@ -126,7 +126,7 @@ func test_build_straight_path_returns_path_node() -> void:
 	var path: Path2D = builder.build_straight_path([Vector2i(0, 0)], 0, 0, data_table)
 	assert_bool(path != null).is_equal(true)
 	# PathSeg objects not available in headless, so verify Path2D structure
-	assert_int(path.get_child_count()).is_equal(0) # No children when ClassDB.instantiate fails
+	assert_int(path.get_child_count()).is_equal(0) # Path has Curve2D, no PathSeg children
 
 
 func test_build_curve_path_returns_path_node() -> void:

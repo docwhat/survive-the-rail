@@ -669,24 +669,12 @@ func _compute_segment_state_from_position(track_model: Track) -> void:
 	position = track_model.get_segment_position(closest_seg)
 
 
-## Find the path progress value closest to a world position.
+## Find the path progress value closest to a world position using Curve2D.
 func _find_closest_path_progress(path: Path2D) -> float:
-	var best_progress: float = 0.0
-	var best_distance: float = INF
-	var total_length: float = _compute_path_total_length_from_path(path)
-	if total_length <= 0:
+	var curve: Curve2D = path.curve
+	if curve == null:
 		return 0.0
-
-	var step: float = maxf(total_length / 100.0, 0.1)
-	for p in range(0, int(total_length / step) + 1):
-		var t: float = minf(p * step, total_length)
-		var pos_at_t: Vector2 = _get_point_at_path_progress(path, t)
-		var d: float = position.distance_to(pos_at_t)
-		if d < best_distance:
-			best_distance = d
-			best_progress = t
-
-	return best_progress
+	return curve.get_closest_offset(position)
 
 
 ## Compute total path length from the path followers.
@@ -696,67 +684,20 @@ func _compute_path_total_length(path_follower: TrainPathFollower) -> float:
 	return path_follower.get_total_path_length()
 
 
-## Compute total path length from a Path2D node.
+## Compute total path length from a Path2D node using its Curve2D.
 func _compute_path_total_length_from_path(path: Path2D) -> float:
-	var total: float = 0.0
-	for child in path.get_children():
-		match child.get_class():
-			"PathSegLine":
-				var a: Vector2 = child.get_point_a()
-				var b: Vector2 = child.get_point_b()
-				total += a.distance_to(b)
-			"PathSegCurve2D":
-				var a: Vector2 = child.get_point_a()
-				var b: Vector2 = child.get_point_b()
-				var c: Vector2 = child.get_point_c()
-				var mid: Vector2 = _bezier_midpoint(a, b, c)
-				total += a.distance_to(mid) + mid.distance_to(c)
-			_:
-				pass
-	return total
+	var curve: Curve2D = path.curve
+	if curve == null:
+		return 0.0
+	return curve.get_baked_length()
 
 
-## Get the world position at a specific progress value along the path.
+## Get the world position at a specific progress value along the path using Curve2D.
 func _get_point_at_path_progress(path: Path2D, progress: float) -> Vector2:
-	var remaining: float = progress
-	for child in path.get_children():
-		match child.get_class():
-			"PathSegLine":
-				var a: Vector2 = child.get_point_a()
-				var b: Vector2 = child.get_point_b()
-				var seg_len: float = a.distance_to(b)
-				if remaining <= seg_len:
-					return a.lerp(b, remaining / seg_len)
-				remaining -= seg_len
-			"PathSegCurve2D":
-				var a: Vector2 = child.get_point_a()
-				var b: Vector2 = child.get_point_b()
-				var c: Vector2 = child.get_point_c()
-				var mid: Vector2 = _bezier_midpoint(a, b, c)
-				var seg_len: float = a.distance_to(mid) + mid.distance_to(c)
-				if remaining <= seg_len:
-					return _get_point_on_curve_at_progress(child, remaining / seg_len)
-				remaining -= seg_len
-			_:
-				pass
-	return Vector2.ZERO
-
-
-## Get a point on a curve segment at local progress (0.0 to 1.0).
-func _get_point_on_curve_at_progress(curve_segment, local_progress: float) -> Vector2:
-	var a: Vector2 = curve_segment.get_point_a()
-	var b: Vector2 = curve_segment.get_point_b()
-	var c: Vector2 = curve_segment.get_point_c()
-	var mid: Vector2 = _bezier_midpoint(a, b, c)
-
-	if local_progress <= 0.5:
-		# First half: a -> mid
-		var local_t: float = local_progress * 2.0
-		return a.lerp(mid, local_t)
-	else:
-		# Second half: mid -> c
-		var local_t: float = (local_progress - 0.5) * 2.0
-		return mid.lerp(c, local_t)
+	var curve: Curve2D = path.curve
+	if curve == null:
+		return Vector2.ZERO
+	return curve.sample_baked(progress)
 
 
 ## Find the closest segment index for a given position.
@@ -774,14 +715,6 @@ func _find_closest_segment(track_model: Track) -> int:
 			best_dist = d
 			best_idx = i
 	return best_idx
-
-
-## Compute a Bezier midpoint at t=0.5.
-func _bezier_midpoint(p0: Vector2, p1: Vector2, p2: Vector2) -> Vector2:
-	var t: float = 0.5
-	var x: float = (1 - t) * (1 - t) * p0.x + 2 * (1 - t) * t * p1.x + t * t * p2.x
-	var y: float = (1 - t) * (1 - t) * p0.y + 2 * (1 - t) * t * p1.y + t * t * p2.y
-	return Vector2(x, y)
 
 
 ## Check if the train is in reverse mode.

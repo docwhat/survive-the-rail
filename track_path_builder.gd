@@ -3,7 +3,7 @@ class_name TrackPathBuilder
 ##
 ## This is a pure computation layer — no rendering logic, no scene nodes.
 ## Given the current state of the track's data model, it produces a `Path2D`
-## that can be used by `PathFollow2D` for train movement.
+## with a `Curve2D` resource that can be used by `PathFollow2D` for train movement.
 
 const CELL_SIZE: int = 64
 ## Size of one grid cell in world units.
@@ -78,96 +78,93 @@ func get_neighbors_in_group(cells: Array[Vector2i], cell: Vector2i) -> Array[Vec
 # ============================================================================
 
 
-## Build a Path2D for a straight segment.
+## Build a Path2D for a straight segment using Curve2D.
 ## @param cells: Sorted cell positions for the segment.
 ## @param type_id: Segment type ID.
 ## @param orientation: Segment orientation (0-3).
-## @param data_table: The data table (unused, for API consistency).
-## @return Path2D containing line segments for the straight.
-func build_straight_path(cells: Array[Vector2i], type_id: int, orientation: int, data_table: DataTable) -> Path2D:
+## @param _data_table: The data table (unused, for API consistency).
+## @return Path2D containing a Curve2D for the straight.
+func build_straight_path(cells: Array[Vector2i], type_id: int, orientation: int, _data_table: DataTable) -> Path2D:
 	var path: Path2D = Path2D.new()
+	var curve: Curve2D = Curve2D.new()
 
 	if cells.size() == 0:
+		path.curve = curve
 		return path
 
 	match cells.size():
 		1:
-			_build_straight_cell(path, cells[0], type_id, orientation)
+			_build_straight_cell_points(curve, cells[0], type_id, orientation)
 		_:
-			_build_straight_multi_cell(path, cells, type_id, orientation)
+			_build_straight_multi_cell_points(curve, cells)
 
+	path.curve = curve
 	return path
 
 
-## Build a single-cell straight segment path.
-func _build_straight_cell(path: Path2D, cell: Vector2i, type_id: int, orientation: int) -> void:
+## Add points for a single-cell straight segment to a Curve2D.
+func _build_straight_cell_points(curve: Curve2D, cell: Vector2i, type_id: int, orientation: int) -> void:
 	var center: Vector2 = _cell_center(cell)
-	var line = ClassDB.instantiate("PathSegLine")
-	if line == null:
-		return
+
+	var p1: Vector2
+	var p2: Vector2
 
 	match type_id:
 		_STRAIGHT_H:
 			if orientation % 2 == 0:
-				# Horizontal (no rotation or 180°)
-				line.set_point_a(center + Vector2(-CELL_SIZE / 2, 0))
-				line.set_point_b(center + Vector2(CELL_SIZE / 2, 0))
+				p1 = center + Vector2(-CELL_SIZE / 2.0, 0)
+				p2 = center + Vector2(CELL_SIZE / 2.0, 0)
 			else:
-				# Vertical (90° or 270°)
-				line.set_point_a(center + Vector2(0, -CELL_SIZE / 2))
-				line.set_point_b(center + Vector2(0, CELL_SIZE / 2))
+				p1 = center + Vector2(0, -CELL_SIZE / 2.0)
+				p2 = center + Vector2(0, CELL_SIZE / 2.0)
 		_STRAIGHT_V:
 			if orientation % 2 == 0:
-				# Vertical (no rotation or 180°)
-				line.set_point_a(center + Vector2(0, -CELL_SIZE / 2))
-				line.set_point_b(center + Vector2(0, CELL_SIZE / 2))
+				p1 = center + Vector2(0, -CELL_SIZE / 2.0)
+				p2 = center + Vector2(0, CELL_SIZE / 2.0)
 			else:
-				# Horizontal (90° or 270°)
-				line.set_point_a(center + Vector2(-CELL_SIZE / 2, 0))
-				line.set_point_b(center + Vector2(CELL_SIZE / 2, 0))
+				p1 = center + Vector2(-CELL_SIZE / 2.0, 0)
+				p2 = center + Vector2(CELL_SIZE / 2.0, 0)
+		_:
+			p1 = center
+			p2 = center
 
-	path.add_child(line)
+	curve.add_point(p1)
+	curve.add_point(p2)
 
 
-## Build a multi-cell straight segment path.
-func _build_straight_multi_cell(path: Path2D, cells: Array[Vector2i], type_id: int, orientation: int) -> void:
+## Add points for a multi-cell straight segment to a Curve2D.
+func _build_straight_multi_cell_points(curve: Curve2D, cells: Array[Vector2i]) -> void:
 	if cells.size() < 2:
 		return
-
-	for i in range(cells.size() - 1):
-		var p1: Vector2 = _cell_center(cells[i])
-		var p2: Vector2 = _cell_center(cells[i + 1])
-		var line = ClassDB.instantiate("PathSegLine")
-		if line == null:
-			continue
-		line.set_point_a(p1)
-		line.set_point_b(p2)
-		path.add_child(line)
+	for i in range(cells.size()):
+		curve.add_point(_cell_center(cells[i]))
 
 # ============================================================================
 # Subtask 4b-3: Curve segment path generation
 # ============================================================================
 
 
-## Build a Path2D for a curve segment.
+## Build a Path2D for a curve segment using Curve2D.
 ## @param cells: Sorted cell positions for the segment.
 ## @param type_id: Segment type ID.
 ## @param orientation: Segment orientation (0-3).
-## @return Path2D containing curve segments.
+## @return Path2D containing a Curve2D for the curve.
 func build_curve_path(cells: Array[Vector2i], type_id: int, orientation: int) -> Path2D:
 	var path: Path2D = Path2D.new()
+	var curve: Curve2D = Curve2D.new()
 
 	match type_id:
 		_CURVE_1X1:
-			_build_curve_1x1(path, cells, orientation)
+			_build_curve_1x1_points(curve, cells, orientation)
 		_CURVE_2X2:
-			_build_curve_2x2(path, cells, orientation)
+			_build_curve_2x2_points(curve, cells, orientation)
 
+	path.curve = curve
 	return path
 
 
-## Build a 1x1 curve path.
-func _build_curve_1x1(path: Path2D, cells: Array[Vector2i], orientation: int) -> void:
+## Add points for a 1x1 curve to a Curve2D.
+func _build_curve_1x1_points(curve: Curve2D, cells: Array[Vector2i], orientation: int) -> void:
 	if cells.size() != 1:
 		return
 
@@ -175,56 +172,30 @@ func _build_curve_1x1(path: Path2D, cells: Array[Vector2i], orientation: int) ->
 	var entry: Vector2 = _curve_entry_exit_1x1(orientation, true) + center
 	var exit: Vector2 = _curve_entry_exit_1x1(orientation, false) + center
 
-	var curve = ClassDB.instantiate("PathSegCurve2D")
-	if curve == null:
-		return
-
-	curve.set_point_a(entry)
-	curve.set_point_b(center)
-	curve.set_point_c(exit)
-	path.add_child(curve)
+	curve.add_point(entry)
+	curve.add_point(center)
+	curve.add_point(exit)
 
 
-## Build a 2x2 curve path.
-func _build_curve_2x2(path: Path2D, cells: Array[Vector2i], orientation: int) -> void:
+## Add points for a 2x2 curve to a Curve2D.
+func _build_curve_2x2_points(curve: Curve2D, cells: Array[Vector2i], orientation: int) -> void:
 	if cells.size() != 4:
 		return
 
-	# 2x2 curve has 4 cells forming a quarter-circle shape
-	# Trace through cells in order: entry → inner → corner → exit
 	var sorted_cells: Array[Vector2i] = _sort_curve_2x2(cells, orientation)
+	var center_pos: Vector2 = center_from_2x2(sorted_cells)
 
-	for i in range(sorted_cells.size() - 1):
-		var p1: Vector2 = _cell_center(sorted_cells[i])
-		var p2: Vector2 = _cell_center(sorted_cells[i + 1])
+	# Entry point
+	var entry: Vector2 = _curve_entry_exit_1x1(orientation, true) + center_pos
+	curve.add_point(entry)
 
-		if i == 0:
-			# First segment: curve from entry
-			var entry: Vector2 = _curve_entry_exit_1x1(orientation, true) + center_from_2x2(sorted_cells)
-			var curve = ClassDB.instantiate("PathSegCurve2D")
-			if curve == null:
-				continue
-			curve.set_point_a(entry)
-			curve.set_point_b(p1)
-			curve.set_point_c(p2)
-			path.add_child(curve)
-		elif i == sorted_cells.size() - 2:
-			# Last segment: curve to exit
-			var curve = ClassDB.instantiate("PathSegCurve2D")
-			if curve == null:
-				continue
-			curve.set_point_a(p1)
-			curve.set_point_b(p2)
-			curve.set_point_c(_curve_entry_exit_1x1(orientation, false) + center_from_2x2(sorted_cells))
-			path.add_child(curve)
-		else:
-			# Middle segments: line through inner cells
-			var line = ClassDB.instantiate("PathSegLine")
-			if line == null:
-				continue
-			line.set_point_a(p1)
-			line.set_point_b(p2)
-			path.add_child(line)
+	# Trace through sorted cells
+	for cell in sorted_cells:
+		curve.add_point(_cell_center(cell))
+
+	# Exit point
+	var exit: Vector2 = _curve_entry_exit_1x1(orientation, false) + center_pos
+	curve.add_point(exit)
 
 
 ## Compute the center of a 2x2 curve cell group.
@@ -241,38 +212,34 @@ func center_from_2x2(cells: Array[Vector2i]) -> Vector2:
 # ============================================================================
 
 
-## Build a Path2D for a 90° crossing segment.
+## Build a Path2D for a 90° crossing segment using Curve2D.
 ## @param cells: Sorted cell positions for the segment.
 ## @param type_id: Segment type ID (must be _CROSSING_90).
 ## @param orientation: Segment orientation (0-3).
-## @return Path2D containing cross-shaped path.
+## @return Path2D containing a Curve2D for the crossing.
 func build_crossing_path(cells: Array[Vector2i], type_id: int, orientation: int) -> Path2D:
 	var path: Path2D = Path2D.new()
+	var curve: Curve2D = Curve2D.new()
 
 	if cells.size() != 5:
+		path.curve = curve
 		return path
 
-	# Find the center cell (the one with neighbors on all 4 sides)
 	var center_cell: Vector2i = _find_crossing_center(cells)
 	if center_cell == Vector2i(-1, -1):
+		path.curve = curve
 		return path
 
 	var center_pos: Vector2 = _cell_center(center_cell)
+	curve.add_point(center_pos)
 
-	# Build lines from center to each arm
 	var directions: Array[Vector2i] = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
-
 	for dir in directions:
 		var neighbor: Vector2i = center_cell + dir
 		if cells.has(neighbor):
-			var line = ClassDB.instantiate("PathSegLine")
-			if line == null:
-				continue
-			var neighbor_pos: Vector2 = _cell_center(neighbor)
-			line.set_point_a(center_pos)
-			line.set_point_b(neighbor_pos)
-			path.add_child(line)
+			curve.add_point(_cell_center(neighbor))
 
+	path.curve = curve
 	return path
 
 
@@ -292,9 +259,10 @@ func _find_crossing_center(cells: Array[Vector2i]) -> Vector2i:
 ## Build a complete Path2D from the full data model state.
 ## @param data_table: The track's data table.
 ## @param segment_table: The track's segment table.
-## @return Path2D with all segment geometries.
+## @return Path2D with a Curve2D containing all segment geometries.
 func build_full_path(data_table: DataTable, segment_table: SegmentTable) -> Path2D:
 	var path: Path2D = Path2D.new()
+	var curve: Curve2D = Curve2D.new()
 	var segments: Dictionary = group_cells_by_segment(data_table)
 
 	# Sort segments by segment ID for consistent ordering
@@ -312,28 +280,56 @@ func build_full_path(data_table: DataTable, segment_table: SegmentTable) -> Path
 		# Sort cells into path order
 		var sorted_cells: Array[Vector2i] = sort_cells_in_path_order(cells, type_id, orientation)
 
-		# Dispatch to the appropriate build method
+		# Dispatch to the appropriate internal build method, adding directly to shared curve
 		match type_id:
 			_STRAIGHT_H, _STRAIGHT_V:
-				var straight_path: Path2D = build_straight_path(sorted_cells, type_id, orientation, data_table)
-				_add_path_segments(path, straight_path)
+				_build_straight_curve(curve, sorted_cells, type_id, orientation)
 			_CURVE_1X1, _CURVE_2X2:
-				var curve_path: Path2D = build_curve_path(sorted_cells, type_id, orientation)
-				_add_path_segments(path, curve_path)
+				_build_curve_direct(curve, sorted_cells, type_id, orientation)
 			_CROSSING_90:
-				var crossing_path: Path2D = build_crossing_path(sorted_cells, type_id, orientation)
-				_add_path_segments(path, crossing_path)
+				_build_crossing_direct(curve, sorted_cells, orientation)
 
+	path.curve = curve
 	return path
 
 
-## Add all PathSeg* children from one Path2D to another.
-func _add_path_segments(target: Path2D, source: Path2D) -> void:
-	for child in source.get_children():
-		if child.get_class() == "PathSeg":
-			var copy = child.duplicate()
-			if copy != null:
-				target.add_child(copy)
+## Build a straight segment's points into the shared Curve2D.
+func _build_straight_curve(curve: Curve2D, cells: Array[Vector2i], type_id: int, orientation: int) -> void:
+	if cells.size() == 0:
+		return
+	match cells.size():
+		1:
+			_build_straight_cell_points(curve, cells[0], type_id, orientation)
+		_:
+			_build_straight_multi_cell_points(curve, cells)
+
+
+## Build a curve segment's points into the shared Curve2D.
+func _build_curve_direct(curve: Curve2D, cells: Array[Vector2i], type_id: int, orientation: int) -> void:
+	match type_id:
+		_CURVE_1X1:
+			_build_curve_1x1_points(curve, cells, orientation)
+		_CURVE_2X2:
+			_build_curve_2x2_points(curve, cells, orientation)
+
+
+## Build a crossing segment's points into the shared Curve2D.
+func _build_crossing_direct(curve: Curve2D, cells: Array[Vector2i], orientation: int) -> void:
+	if cells.size() != 5:
+		return
+
+	var center_cell: Vector2i = _find_crossing_center(cells)
+	if center_cell == Vector2i(-1, -1):
+		return
+
+	var center_pos: Vector2 = _cell_center(center_cell)
+	curve.add_point(center_pos)
+
+	var directions: Array[Vector2i] = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
+	for dir in directions:
+		var neighbor: Vector2i = center_cell + dir
+		if cells.has(neighbor):
+			curve.add_point(_cell_center(neighbor))
 
 # ============================================================================
 # Helper methods
@@ -342,10 +338,10 @@ func _add_path_segments(target: Path2D, source: Path2D) -> void:
 
 ## Convert a cell position to its center in world coordinates.
 func _cell_center(cell: Vector2i) -> Vector2:
-	return Vector2(float(cell.x) * CELL_SIZE + CELL_SIZE / 2, float(cell.y) * CELL_SIZE + CELL_SIZE / 2)
+	return Vector2(float(cell.x) * CELL_SIZE + CELL_SIZE / 2.0, float(cell.y) * CELL_SIZE + CELL_SIZE / 2.0)
 
 
-## Get the entry direction for a curve (first direction in entrance pair).
+## Get the entry or exit direction for a curve.
 func _curve_entry_exit_1x1(orientation: int, is_entry: bool) -> Vector2:
 	match orientation:
 		0: # LEFT-UP
@@ -384,7 +380,6 @@ func _sort_straight_v(cells: Array[Vector2i], orientation: int) -> Array[Vector2
 func _sort_curve(cells: Array[Vector2i], type_id: int, orientation: int) -> Array[Vector2i]:
 	if cells.size() == 1:
 		return cells.duplicate()
-	# For multi-cell curves, sort by distance from a canonical entry point
 	var sorted: Array[Vector2i] = cells.duplicate()
 	sorted.sort_custom(
 		func(a: Vector2i, b: Vector2i) -> bool:
@@ -397,11 +392,9 @@ func _sort_curve(cells: Array[Vector2i], type_id: int, orientation: int) -> Arra
 
 ## Sort 2x2 curve cells in proper trace order.
 func _sort_curve_2x2(cells: Array[Vector2i], orientation: int) -> Array[Vector2i]:
-	# For 2x2 curves: [entry_cell, inner_cell_1, inner_cell_2, exit_cell]
 	if cells.size() != 4:
 		return cells.duplicate()
 
-	# The entry cell is the one closest to the entry direction
 	var entry_dirs: Array[Vector2i] = [_curve_entry_exit_1x1(orientation, true)]
 	var sorted: Array[Vector2i] = cells.duplicate()
 	sorted.sort_custom(
