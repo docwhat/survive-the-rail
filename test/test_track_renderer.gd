@@ -67,7 +67,12 @@ func test_get_valid_connections_straight_v_rotated() -> void:
 
 
 func test_draw_arc_generates_correct_step_count() -> void:
-	var points: PackedVector2Array = _stub_draw_arc(Vector2.ZERO, Vector2.RIGHT, Vector2.DOWN, 32.0)
+	var points: PackedVector2Array = _stub_draw_arc(
+		Vector2.ZERO,
+		Vector2.RIGHT,
+		Vector2.DOWN,
+		32.0,
+	)
 	assert_int(points.size()).is_equal(11) # steps=12, excluding endpoints = 11
 
 
@@ -82,8 +87,18 @@ func test_draw_arc_direction_right_down() -> void:
 
 
 func test_draw_arc_all_lengths_same() -> void:
-	var points_a: PackedVector2Array = _stub_draw_arc(Vector2.ZERO, Vector2.RIGHT, Vector2.UP, 32.0)
-	var points_b: PackedVector2Array = _stub_draw_arc(Vector2.ZERO, Vector2.LEFT, Vector2.DOWN, 48.0)
+	var points_a: PackedVector2Array = _stub_draw_arc(
+		Vector2.ZERO,
+		Vector2.RIGHT,
+		Vector2.UP,
+		32.0,
+	)
+	var points_b: PackedVector2Array = _stub_draw_arc(
+		Vector2.ZERO,
+		Vector2.LEFT,
+		Vector2.DOWN,
+		48.0,
+	)
 	assert_int(points_a.size()).is_equal(points_b.size())
 
 # ============================================================================
@@ -216,8 +231,18 @@ func test_get_valid_connections_unknown_type_returns_empty() -> void:
 
 
 func test_draw_arc_for_preview_same_as_placement() -> void:
-	var placement_arc: PackedVector2Array = _stub_draw_arc(Vector2.ZERO, Vector2.RIGHT, Vector2.DOWN, 32.0)
-	var preview_arc: PackedVector2Array = _stub_draw_arc(Vector2.ZERO, Vector2.RIGHT, Vector2.DOWN, 32.0)
+	var placement_arc: PackedVector2Array = _stub_draw_arc(
+		Vector2.ZERO,
+		Vector2.RIGHT,
+		Vector2.DOWN,
+		32.0,
+	)
+	var preview_arc: PackedVector2Array = _stub_draw_arc(
+		Vector2.ZERO,
+		Vector2.RIGHT,
+		Vector2.DOWN,
+		32.0,
+	)
 	assert_int(placement_arc.size()).is_equal(preview_arc.size())
 
 
@@ -238,8 +263,7 @@ func _stub_segment_dispatch(type_id: int, cell_count: int) -> String:
 		0, 1: # STRAIGHT_H, STRAIGHT_V
 			if cell_count == 1:
 				return "straight_single"
-			else:
-				return "straight_multi"
+			return "straight_multi"
 		2: # CURVE_1X1
 			return "curve_1x1_single"
 		3: # CURVE_2X2
@@ -271,13 +295,11 @@ func _stub_get_valid_connections(type_id: int, orientation: int) -> Array[Vector
 		0: # STRAIGHT_H
 			if orientation == 0:
 				return [Vector2.RIGHT, Vector2.LEFT]
-			else:
-				return [Vector2.DOWN, Vector2.UP]
+			return [Vector2.DOWN, Vector2.UP]
 		1: # STRAIGHT_V
 			if orientation == 0:
 				return [Vector2.DOWN, Vector2.UP]
-			else:
-				return [Vector2.RIGHT, Vector2.LEFT]
+			return [Vector2.RIGHT, Vector2.LEFT]
 		2: # CURVE_1X1
 			match orientation:
 				0:

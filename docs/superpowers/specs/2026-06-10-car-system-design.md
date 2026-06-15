@@ -8,7 +8,7 @@
 
 Three classes split by responsibility:
 
-```
+```text
 car.gd         — base car: stats, weight, health, category, level
 car_weapon.gd  — weapon behavior: fire rate, damage, range, targeting mode
 car_utility.gd — utility bonus: passive stat boost, stacking support
@@ -85,7 +85,7 @@ Two utility configurations:
 
 ### `Train.process_cars(delta)`
 
-```
+```gdscript
 for car in cars:
     if car.has_weapon():
         weapon = car.weapon
@@ -114,7 +114,7 @@ Weapons query enemy dictionaries for `position` and `health`. No dependency on e
 
 ### `Train._apply_utility_bonuses()`
 
-```
+```gdscript
 for car in cars:
     if car.has_utility():
         bonus = car.utility

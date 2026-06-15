@@ -102,7 +102,13 @@ func test_sort_cells_curve_cells_ordered() -> void:
 
 
 func test_get_neighbors_basic() -> void:
-	var cells: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	var cells: Array[Vector2i] = [
+		Vector2i(0, 0),
+		Vector2i(1, 0),
+		Vector2i(-1, 0),
+		Vector2i(0, 1),
+		Vector2i(0, -1),
+	]
 	var builder: TrackPathBuilder = TrackPathBuilder.new()
 	var neighbors: Array[Vector2i] = builder.get_neighbors_in_group(cells, Vector2i(0, 0))
 	assert_int(neighbors.size()).is_equal(4)
@@ -137,8 +143,15 @@ func test_build_curve_path_returns_path_node() -> void:
 
 
 func test_build_crossing_path_returns_path_node() -> void:
+	var cells: Array[Vector2i] = [
+		Vector2i(0, 0),
+		Vector2i(1, 0),
+		Vector2i(-1, 0),
+		Vector2i(0, 1),
+		Vector2i(0, -1),
+	]
 	var builder: TrackPathBuilder = TrackPathBuilder.new()
-	var path: Path2D = builder.build_crossing_path([Vector2i(0, 0), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)], 4, 0)
+	var path: Path2D = builder.build_crossing_path(cells, 4, 0)
 	assert_bool(path != null).is_equal(true)
 	assert_int(path.get_child_count()).is_equal(0)
 

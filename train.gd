@@ -137,7 +137,7 @@ func remove_car(car: Car) -> void:
 ## Set up the path followers with a track's built path.
 ## @param path: The Path2D to follow.
 ## @param track: The Track data model (for segment info).
-func set_path(path: Path2D, track: Track = null) -> void:
+func set_path(path: Path2D, _track: Track = null) -> void:
 	_path_follower = TrainPathFollower.new()
 	_path_follower.initialize(path)
 	_has_path = true
@@ -435,7 +435,11 @@ func is_destroyed() -> bool:
 ## @param is_throttle_pressed: Whether throttle input is active
 ## @param is_brake_pressed: Whether brake input is active
 ## @param reverse_just_pressed: Whether reverse toggle was just pressed
-func update_input(is_throttle_pressed: bool, is_brake_pressed: bool, reverse_just_pressed: bool = false) -> void:
+func update_input(
+		is_throttle_pressed: bool,
+		is_brake_pressed: bool,
+		reverse_just_pressed: bool = false,
+) -> void:
 	if not enabled:
 		return
 	is_throttling = is_throttle_pressed
@@ -547,7 +551,7 @@ func _get_travel_direction_for_segment(track: Track, seg: TrackSegment) -> Vecto
 
 ## Calculate the coupling offset for a car at the given index.
 ## Each car is spaced by CELL_SIZE along the path behind the engine.
-func _get_car_coupling_offset(car: Car, car_index: int) -> float:
+func _get_car_coupling_offset(_car: Car, car_index: int) -> float:
 	# Each car sits one cell length behind the previous one
 	return (car_index + 1) * CELL_SIZE
 
@@ -627,7 +631,7 @@ func set_path_progress(progress: float) -> void:
 
 
 ## Build a path from the track data model and set up path followers.
-## This is the public replacement for calling set_path + _has_path + _compute_path_progress_from_position.
+## Replaces: set_path + _has_path + _compute_path_progress_from_position.
 ## @param track_model: The Track data model to build the path from.
 ## @return True if a path was built, false if the track is empty.
 func load_track_path(track_model: Track) -> bool:

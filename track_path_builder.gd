@@ -39,7 +39,11 @@ func group_cells_by_segment(data_table: DataTable) -> Dictionary:
 ## @param type_id: The segment type ID.
 ## @param orientation: The segment orientation (0-3).
 ## @return Sorted array of cell positions in drawing order.
-func sort_cells_in_path_order(cells: Array[Vector2i], type_id: int, orientation: int) -> Array[Vector2i]:
+func sort_cells_in_path_order(
+		cells: Array[Vector2i],
+		type_id: int,
+		orientation: int,
+) -> Array[Vector2i]:
 	if cells.size() <= 1:
 		return cells.duplicate()
 
@@ -84,7 +88,12 @@ func get_neighbors_in_group(cells: Array[Vector2i], cell: Vector2i) -> Array[Vec
 ## @param orientation: Segment orientation (0-3).
 ## @param _data_table: The data table (unused, for API consistency).
 ## @return Path2D containing a Curve2D for the straight.
-func build_straight_path(cells: Array[Vector2i], type_id: int, orientation: int, _data_table: DataTable) -> Path2D:
+func build_straight_path(
+		cells: Array[Vector2i],
+		type_id: int,
+		orientation: int,
+		_data_table: DataTable,
+) -> Path2D:
 	var path: Path2D = Path2D.new()
 	var curve: Curve2D = Curve2D.new()
 
@@ -103,7 +112,12 @@ func build_straight_path(cells: Array[Vector2i], type_id: int, orientation: int,
 
 
 ## Add points for a single-cell straight segment to a Curve2D.
-func _build_straight_cell_points(curve: Curve2D, cell: Vector2i, type_id: int, orientation: int) -> void:
+func _build_straight_cell_points(
+		curve: Curve2D,
+		cell: Vector2i,
+		type_id: int,
+		orientation: int,
+) -> void:
 	var center: Vector2 = _cell_center(cell)
 
 	var p1: Vector2
@@ -217,7 +231,7 @@ func center_from_2x2(cells: Array[Vector2i]) -> Vector2:
 ## @param type_id: Segment type ID (must be _CROSSING_90).
 ## @param orientation: Segment orientation (0-3).
 ## @return Path2D containing a Curve2D for the crossing.
-func build_crossing_path(cells: Array[Vector2i], type_id: int, orientation: int) -> Path2D:
+func build_crossing_path(cells: Array[Vector2i], _type_id: int, _orientation: int) -> Path2D:
 	var path: Path2D = Path2D.new()
 	var curve: Curve2D = Curve2D.new()
 
@@ -294,7 +308,12 @@ func build_full_path(data_table: DataTable, segment_table: SegmentTable) -> Path
 
 
 ## Build a straight segment's points into the shared Curve2D.
-func _build_straight_curve(curve: Curve2D, cells: Array[Vector2i], type_id: int, orientation: int) -> void:
+func _build_straight_curve(
+		curve: Curve2D,
+		cells: Array[Vector2i],
+		type_id: int,
+		orientation: int,
+) -> void:
 	if cells.size() == 0:
 		return
 	match cells.size():
@@ -305,7 +324,12 @@ func _build_straight_curve(curve: Curve2D, cells: Array[Vector2i], type_id: int,
 
 
 ## Build a curve segment's points into the shared Curve2D.
-func _build_curve_direct(curve: Curve2D, cells: Array[Vector2i], type_id: int, orientation: int) -> void:
+func _build_curve_direct(
+		curve: Curve2D,
+		cells: Array[Vector2i],
+		type_id: int,
+		orientation: int,
+) -> void:
 	match type_id:
 		_CURVE_1X1:
 			_build_curve_1x1_points(curve, cells, orientation)
@@ -316,7 +340,7 @@ func _build_curve_direct(curve: Curve2D, cells: Array[Vector2i], type_id: int, o
 ## Build a crossing segment's points into the shared Curve2D.
 ## For a crossing, we only add the center point — the curve interpolates
 ## a straight path through it from the previous segment's exit to the next.
-func _build_crossing_direct(curve: Curve2D, cells: Array[Vector2i], orientation: int) -> void:
+func _build_crossing_direct(curve: Curve2D, cells: Array[Vector2i], _orientation: int) -> void:
 	if cells.size() < 1:
 		return
 
@@ -334,7 +358,10 @@ func _build_crossing_direct(curve: Curve2D, cells: Array[Vector2i], orientation:
 
 ## Convert a cell position to its center in world coordinates.
 func _cell_center(cell: Vector2i) -> Vector2:
-	return Vector2(float(cell.x) * CELL_SIZE + CELL_SIZE / 2.0, float(cell.y) * CELL_SIZE + CELL_SIZE / 2.0)
+	return Vector2(
+		float(cell.x) * CELL_SIZE + CELL_SIZE / 2.0,
+		float(cell.y) * CELL_SIZE + CELL_SIZE / 2.0,
+	)
 
 
 ## Get the entry or exit point offset for a curve, in world units.
@@ -355,7 +382,7 @@ func _curve_entry_exit_1x1(orientation: int, is_entry: bool) -> Vector2:
 
 
 ## Sort straight horizontal cells.
-func _sort_straight_h(cells: Array[Vector2i], orientation: int) -> Array[Vector2i]:
+func _sort_straight_h(cells: Array[Vector2i], _orientation: int) -> Array[Vector2i]:
 	var sorted: Array[Vector2i] = cells.duplicate()
 	sorted.sort_custom(
 		func(a: Vector2i, b: Vector2i) -> bool:
@@ -365,7 +392,7 @@ func _sort_straight_h(cells: Array[Vector2i], orientation: int) -> Array[Vector2
 
 
 ## Sort straight vertical cells.
-func _sort_straight_v(cells: Array[Vector2i], orientation: int) -> Array[Vector2i]:
+func _sort_straight_v(cells: Array[Vector2i], _orientation: int) -> Array[Vector2i]:
 	var sorted: Array[Vector2i] = cells.duplicate()
 	sorted.sort_custom(
 		func(a: Vector2i, b: Vector2i) -> bool:
@@ -375,7 +402,7 @@ func _sort_straight_v(cells: Array[Vector2i], orientation: int) -> Array[Vector2
 
 
 ## Sort curve cells in entry→exit order.
-func _sort_curve(cells: Array[Vector2i], type_id: int, orientation: int) -> Array[Vector2i]:
+func _sort_curve(cells: Array[Vector2i], _type_id: int, orientation: int) -> Array[Vector2i]:
 	if cells.size() == 1:
 		return cells.duplicate()
 	var sorted: Array[Vector2i] = cells.duplicate()
@@ -425,7 +452,7 @@ func _dist_to_entry(cell: Vector2i, orientation: int) -> float:
 
 
 ## Sort crossing cells by distance from center.
-func _sort_crossing(cells: Array[Vector2i], orientation: int) -> Array[Vector2i]:
+func _sort_crossing(cells: Array[Vector2i], _orientation: int) -> Array[Vector2i]:
 	var center: Vector2i = _find_crossing_center(cells)
 	if center == Vector2i(-1, -1):
 		return cells.duplicate()

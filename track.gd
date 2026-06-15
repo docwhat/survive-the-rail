@@ -284,8 +284,7 @@ func _connections_to_type_and_orientation(conns: Array[Vector2i], seg: TrackSegm
 	if conns.size() == 2 and _are_opposite(conns[0], conns[1]):
 		if _is_horizontal(conns[0]) or _is_horizontal(conns[1]):
 			return [SegmentType.STRAIGHT_H, 0]
-		else:
-			return [SegmentType.STRAIGHT_V, 0]
+		return [SegmentType.STRAIGHT_V, 0]
 
 	# Curve segment (2 adjacent connections)
 	if conns.size() == 2:
@@ -324,23 +323,22 @@ func _curve_to_type_and_orientation(a: Vector2i, b: Vector2i, type_id: int) -> A
 		# 'a' is vertical (UP or DOWN)
 		if b.x == -1: # LEFT
 			return [type_id, 0]
-		else: # RIGHT
-			if a.y == -1: # UP + RIGHT
-				return [type_id, 2]
-			else: # DOWN + RIGHT
-				return [type_id, 3]
-	else:
-		# 'a' is horizontal (LEFT or RIGHT), 'b' is vertical
-		if b.y == -1: # UP
-			if a.x == -1: # LEFT + UP
-				return [type_id, 0]
-			else: # RIGHT + UP
-				return [type_id, 2]
-		else: # DOWN
-			if a.x == -1: # LEFT + DOWN
-				return [type_id, 1]
-			else: # RIGHT + DOWN
-				return [type_id, 3]
+		# 'b' is RIGHT
+		if a.y == -1: # UP + RIGHT
+			return [type_id, 2]
+		# 'b' is RIGHT + DOWN
+		return [type_id, 3]
+	# 'a' is horizontal (LEFT or RIGHT), 'b' is vertical
+	if b.y == -1: # UP
+		if a.x == -1: # LEFT + UP
+			return [type_id, 0]
+		# RIGHT + UP
+		return [type_id, 2]
+	# DOWN
+	if a.x == -1: # LEFT + DOWN
+		return [type_id, 1]
+	# RIGHT + DOWN
+	return [type_id, 3]
 
 
 ## Convert a direction vector to a canonical index.
@@ -363,8 +361,7 @@ func _get_valid_connections(type_id: int, orientation: int) -> Array[Vector2i]:
 		SegmentType.STRAIGHT_H:
 			if orientation == 0:
 				return [Vector2i.RIGHT, Vector2i.LEFT]
-			else:
-				return [Vector2i.DOWN, Vector2i.UP]
+			return [Vector2i.DOWN, Vector2i.UP]
 		SegmentType.STRAIGHT_V:
 			if orientation == 0:
 				return [Vector2i.DOWN, Vector2i.UP]

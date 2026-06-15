@@ -52,7 +52,12 @@ func update(track_model: Track, cam_offset: Vector2) -> void:
 
 
 ## Set placement preview state.
-func set_preview(cell: Vector2i, seg_type: int, orientation: int, valid_positions: Array[Vector2i]) -> void:
+func set_preview(
+		cell: Vector2i,
+		seg_type: int,
+		orientation: int,
+		valid_positions: Array[Vector2i],
+) -> void:
 	preview_cell = cell
 	preview_type_id = seg_type
 	preview_orientation = orientation
@@ -128,7 +133,12 @@ func _draw_grid(center: Vector2) -> void:
 
 
 ## Dispatch segment drawing based on type from the data model.
-func _draw_segment_from_data(cells: Array[Vector2i], type_id: int, orientation: int, center: Vector2) -> void:
+func _draw_segment_from_data(
+		cells: Array[Vector2i],
+		type_id: int,
+		orientation: int,
+		center: Vector2,
+) -> void:
 	match type_id:
 		_STRAIGHT_H, _STRAIGHT_V:
 			_draw_straight_segment(cells, type_id, orientation, center)
@@ -139,7 +149,12 @@ func _draw_segment_from_data(cells: Array[Vector2i], type_id: int, orientation: 
 
 
 ## Draw a straight segment from the data model.
-func _draw_straight_segment(cells: Array[Vector2i], type_id: int, orientation: int, center: Vector2) -> void:
+func _draw_straight_segment(
+		cells: Array[Vector2i],
+		type_id: int,
+		orientation: int,
+		center: Vector2,
+) -> void:
 	if cells.size() == 0:
 		return
 
@@ -181,7 +196,12 @@ func _draw_single_straight(cell: Vector2i, type_id: int, orientation: int, cente
 
 
 ## Draw a multi-cell straight segment.
-func _draw_multi_straight(cells: Array[Vector2i], type_id: int, orientation: int, center: Vector2) -> void:
+func _draw_multi_straight(
+		cells: Array[Vector2i],
+		_type_id: int,
+		_orientation: int,
+		_center: Vector2,
+) -> void:
 	var half_size: float = Track.CELL_SIZE * 0.45
 	var first: Vector2 = cells[0] as Vector2 * Track.CELL_SIZE - center
 	var last: Vector2 = cells[cells.size() - 1] as Vector2 * Track.CELL_SIZE - center
@@ -212,7 +232,12 @@ func _draw_multi_straight(cells: Array[Vector2i], type_id: int, orientation: int
 
 
 ## Draw a curve segment from the data model.
-func _draw_curve_segment(cells: Array[Vector2i], type_id: int, orientation: int, center: Vector2) -> void:
+func _draw_curve_segment(
+		cells: Array[Vector2i],
+		_type_id: int,
+		orientation: int,
+		center: Vector2,
+) -> void:
 	match cells.size():
 		1:
 			_draw_1x1_curve(cells[0], orientation, center)
@@ -275,12 +300,22 @@ func _draw_2x2_curve(cells: Array[Vector2i], orientation: int, center: Vector2) 
 	draw_colored_polygon(filled_points, SEGMENT_COLOR)
 
 	# Draw arc outline
-	var arc_points: PackedVector2Array = _draw_arc(screen_center, entry_dir as Vector2, exit_dir as Vector2, radius)
+	var arc_points: PackedVector2Array = _draw_arc(
+		screen_center,
+		entry_dir as Vector2,
+		exit_dir as Vector2,
+		radius,
+	)
 	draw_polyline(arc_points, SEGMENT_OUTLINE, 2.0)
 
 
 ## Draw a crossing segment (cross shape).
-func _draw_crossing_segment(cells: Array[Vector2i], type_id: int, orientation: int, center: Vector2) -> void:
+func _draw_crossing_segment(
+		cells: Array[Vector2i],
+		_type_id: int,
+		_orientation: int,
+		_center: Vector2,
+) -> void:
 	if cells.size() < 5:
 		return
 
@@ -324,18 +359,42 @@ func _draw_preview(center: Vector2) -> void:
 
 	match preview_type_id:
 		_STRAIGHT_H, _STRAIGHT_V:
-			_draw_preview_straight(preview_cell, preview_type_id, preview_orientation, screen_pos, center)
+			_draw_preview_straight(
+				preview_cell,
+				preview_type_id,
+				preview_orientation,
+				screen_pos,
+				center,
+			)
 		_CURVE_1X1, _CURVE_2X2:
-			_draw_preview_curve(preview_cell, preview_type_id, preview_orientation, screen_pos, center)
+			_draw_preview_curve(
+				preview_cell,
+				preview_type_id,
+				preview_orientation,
+				screen_pos,
+				center,
+			)
 		_CROSSING_90:
-			_draw_preview_crossing(preview_cell, preview_type_id, preview_orientation, screen_pos, center)
+			_draw_preview_crossing(
+				preview_cell,
+				preview_type_id,
+				preview_orientation,
+				screen_pos,
+				center,
+			)
 
 	# Draw entrance markers on preview
 	_draw_entrance_markers(preview_cell, preview_type_id, preview_orientation, center)
 
 
 ## Draw preview for a straight segment.
-func _draw_preview_straight(cell: Vector2i, type_id: int, orientation: int, screen_pos: Vector2, center: Vector2) -> void:
+func _draw_preview_straight(
+		_cell: Vector2i,
+		type_id: int,
+		orientation: int,
+		screen_pos: Vector2,
+		_center: Vector2,
+) -> void:
 	var half_size: float = Track.CELL_SIZE * 0.45
 	var is_horizontal: bool = (type_id == _STRAIGHT_H and orientation % 2 == 0) or \
 			(type_id == _STRAIGHT_V and orientation % 2 != 0)
@@ -361,7 +420,13 @@ func _draw_preview_straight(cell: Vector2i, type_id: int, orientation: int, scre
 
 
 ## Draw preview for a curve segment.
-func _draw_preview_curve(cell: Vector2i, type_id: int, orientation: int, screen_pos: Vector2, center: Vector2) -> void:
+func _draw_preview_curve(
+		_cell: Vector2i,
+		_type_id: int,
+		orientation: int,
+		screen_pos: Vector2,
+		_center: Vector2,
+) -> void:
 	var radius: float = 32.0
 	var entry_dir: Vector2 = _get_curve_entry(orientation, true) as Vector2
 	var exit_dir: Vector2 = _get_curve_entry(orientation, false) as Vector2
@@ -381,7 +446,13 @@ func _draw_preview_curve(cell: Vector2i, type_id: int, orientation: int, screen_
 
 
 ## Draw preview for a crossing segment.
-func _draw_preview_crossing(cell: Vector2i, type_id: int, orientation: int, screen_pos: Vector2, center: Vector2) -> void:
+func _draw_preview_crossing(
+		_cell: Vector2i,
+		_type_id: int,
+		_orientation: int,
+		screen_pos: Vector2,
+		_center: Vector2,
+) -> void:
 	var half_size: float = Track.CELL_SIZE * 0.45
 
 	var h_rect: Rect2 = Rect2(
@@ -404,7 +475,12 @@ func _draw_preview_crossing(cell: Vector2i, type_id: int, orientation: int, scre
 
 
 ## Draw entrance direction markers on a preview cell.
-func _draw_entrance_markers(cell: Vector2i, type_id: int, orientation: int, center: Vector2) -> void:
+func _draw_entrance_markers(
+		cell: Vector2i,
+		type_id: int,
+		orientation: int,
+		center: Vector2,
+) -> void:
 	var screen_pos: Vector2 = cell as Vector2 * Track.CELL_SIZE - center
 	var conns: Array[Vector2i] = _get_valid_connections(type_id, orientation)
 	for dir in conns:
@@ -486,13 +562,11 @@ func _get_valid_connections(type_id: int, orientation: int) -> Array[Vector2i]:
 		_STRAIGHT_H:
 			if orientation == 0:
 				return [Vector2.RIGHT, Vector2.LEFT]
-			else:
-				return [Vector2.DOWN, Vector2.UP]
+			return [Vector2.DOWN, Vector2.UP]
 		_STRAIGHT_V:
 			if orientation == 0:
 				return [Vector2.DOWN, Vector2.UP]
-			else:
-				return [Vector2.RIGHT, Vector2.LEFT]
+			return [Vector2.RIGHT, Vector2.LEFT]
 		_CURVE_1X1:
 			match orientation:
 				0:
