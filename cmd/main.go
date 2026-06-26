@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 const (
@@ -15,7 +16,10 @@ const (
 type Game struct{}
 
 func (g *Game) Update() error {
-	return nil
+    if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+       return ebiten.Termination
+    }
+    return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
