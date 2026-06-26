@@ -1,9 +1,4 @@
-[env]
-
-# Tell Pi's watchdog to wait 10 minutes before killing the session,
-# since local AI is slow.
-PI_RETRY_STALL_TIMEOUT_MS = "{{ 1000 * 60 * 10 }}"
-
-[tasks.game]
-description = "Use 'go run' to start the game"
-run = "go run cmd/main.go"
+[tasks]
+build = "go build -o survive-the-rail ./cmd/main.go"
+run = { depends = "build", run = "./survive-the-rail" }
+test_quick = { depends = "build", run = "./survive-the-rail --quit-after-ms=1000" }

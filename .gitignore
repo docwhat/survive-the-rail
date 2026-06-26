@@ -1,3 +1,4 @@
 
 # Default binary when using go build cmd/main.go
 main
+survive-the-rail
