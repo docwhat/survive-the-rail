@@ -1,3 +1,10 @@
+[env]
+
+# Tell Pi's watchdog to wait 10 minutes before killing the session,
+# since local AI is slow. DO NOT REMOVE THIS, or Pi will kill your
+# session before the AI has a chance to finish.
+PI_RETRY_STALL_TIMEOUT_MS = "{{ 1000 * 60 * 10 }}"
+
 [tasks]
 build = "go build -o survive-the-rail ./cmd/main.go"
 run = { depends = "build", run = "./survive-the-rail" }
