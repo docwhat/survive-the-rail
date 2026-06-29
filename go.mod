@@ -1,8 +1,11 @@
-module docwhat.org/survive-the-rail
+module github.com/docwhat/survive-the-rail/ai-go
 
 go 1.26.4
 
-require github.com/hajimehoshi/ebiten/v2 v2.9.9
+require (
+	github.com/hajimehoshi/ebiten/v2 v2.9.9
+	golang.org/x/image v0.36.0
+)
 
 require (
 	github.com/ebitengine/gomobile v0.0.0-20260211053922-3d992dae95d1 // indirect
