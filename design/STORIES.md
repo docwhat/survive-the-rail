@@ -21,15 +21,16 @@
 ## Story 2: Main menu
 
 **As Fred, the player,**
-**I want** a simple main menu with a "Start Game" button and an escape route back
-**So that** I can begin a run or exit cleanly at any time.
+**I want** a simple main menu with a "Start" button and a "Quit" button that can be summoned at any time with ESC.
+**So that** I can begin a run or exit the game.
 
 **Notes:**
-- Menu screen: title, "Start Game" button
-- ESC from menu → nothing (already at top)
-- Game screen → ESC → menu (abort run)
-- Clean state reset between runs
-- Input: mouse click or Enter for "Start Game"
+- Menu screen: title, "Start" button, and "Quit" button (with text).
+- ESC (at any time) $\rightarrow$ Menu screen.
+- "Quit" button $\rightarrow$ Exit application.
+- Clean state reset between runs.
+- Input: mouse click or Enter for "Start".
+- Menu can be pulled up at any time during a run.
 
 ---
 

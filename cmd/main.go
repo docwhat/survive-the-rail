@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/docwhat/survive-the-rail/ai-go/pkg/game"
+	"github.com/docwhat/survive-the-rail/ai-go/pkg/render"
 )
 
 const (
@@ -15,26 +16,46 @@ const (
 	screenHeight = 720
 )
 
-type Game struct {
+type GameInstance struct {
+	manager     *game.Manager
+	menuRender  *render.MenuRenderer
+	gameRender  *render.GameRenderer
 	startTime   time.Time
 	quitAfterMs int
 }
 
-func (g *Game) Update() error {
+func (g *GameInstance) Update() error {
 	if g.quitAfterMs > 0 && time.Since(g.startTime).Milliseconds() >= int64(g.quitAfterMs) {
 		return ebiten.Termination
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+
+	mx, my := ebiten.CursorPosition()
+	mouseDown := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
+	
+	action, err := g.manager.Update(mx, my, mouseDown)
+	if err != nil {
+		return err
+	}
+
+	if action == game.ActionQuit {
 		return ebiten.Termination
 	}
+
 	return nil
 }
 
-func (g *Game) Draw(screen *ebiten.Image) {
-	screen.Fill(color.RGBA{76, 76, 76, 255})
+func (g *GameInstance) Draw(screen *ebiten.Image) {
+	// Use the color to prevent unused import error
+	_ = color.RGBA{0, 0, 0, 0}
+	switch g.manager.State.CurrentState {
+	case game.StateMenu:
+		g.menuRender.Draw(screen)
+	case game.StatePlaying:
+		g.gameRender.Draw(screen)
+	}
 }
 
-func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
+func (g *GameInstance) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return screenWidth, screenHeight
 }
 
@@ -42,14 +63,17 @@ func main() {
 	quitAfterMs := flag.Int("quit-after-ms", 0, "Auto-quit after this many milliseconds (0 = never)")
 	flag.Parse()
 
-	game := &Game{
+	instance := &GameInstance{
+		manager:     game.NewManager(),
+		menuRender:  render.NewMenuRenderer(),
+		gameRender:  render.NewGameRenderer(),
 		startTime:   time.Now(),
 		quitAfterMs: *quitAfterMs,
 	}
 
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowTitle("Survive the Rail")
-	if err := ebiten.RunGame(game); err != nil {
+	if err := ebiten.RunGame(instance); err != nil {
 		log.Fatal(err)
 	}
 }
